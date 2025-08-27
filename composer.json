@@ -1,6 +1,6 @@
 {
   "name": "itskrayem/starter-package",
-  "description": "Company Laravel Starter Kit",
+  "description": "Company Laravel Starter Package",
   "type": "library",
   "license": "proprietary",
   "require": {
@@ -11,14 +11,20 @@
   },
   "autoload": {
     "psr-4": {
-      "YourOrg\\StarterKit\\": "src/"
+      "ItsKrayem\\StarterPackage\\": "src/"
     }
   },
   "extra": {
     "laravel": {
       "providers": [
-            "ItsKrayem\\StarterPackage\\StarterPackageServiceProvider"
+        "ItsKrayem\\StarterPackage\\StarterPackageServiceProvider"
       ]
+    }
+  },
+  "repositories": {
+    "nova": {
+      "type": "composer",
+      "url": "https://nova.laravel.com"
     }
   },
   "scripts": {
