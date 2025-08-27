@@ -7,16 +7,20 @@ use Illuminate\Support\Facades\File;
 
 class InstallCommand extends Command
 {
-    protected $signature = 'starter:install-core {features?* : Optional features like permission}';
-    protected $description = 'Install core starter package: install Nova, publish assets, migrate DB, optional features';
+    protected $signature = 'starter:install-core {features?*}';
+    protected $description = 'Install starter package: Nova, MediaLibrary, optional features';
 
     public function handle(): int
     {
         $this->info("🚀 Installing Starter Package Core...");
 
+        // Step 1: Install Nova
         $this->installNova();
+
+        // Step 2: MediaLibrary
         $this->installMediaLibrary();
 
+        // Step 3: Optional features (like permission)
         $features = $this->argument('features') ?? [];
         foreach ($features as $feature) {
             if ($feature === 'permission') {
@@ -32,45 +36,55 @@ class InstallCommand extends Command
     {
         $this->info("Checking Laravel Nova...");
 
-        // Configure Nova repo for composer
+        // Step 1: Add Nova repository
         exec('composer config repositories.nova composer https://nova.laravel.com');
 
+        // Step 2: Check if Nova is installed
         if (! class_exists(\Laravel\Nova\Nova::class)) {
+
             $this->info("Installing Laravel Nova via Composer...");
-            exec('composer require laravel/nova:^5.0 -W');
+            $output = [];
+            $status = null;
+            exec('composer require laravel/nova:^5.0', $output, $status);
+
+            if ($status !== 0) {
+                $this->error("❌ Nova installation failed. Make sure you configured your credentials: composer config http-basic.nova.laravel.com <EMAIL> <KEY>");
+                return;
+            }
+
+            $this->info("✅ Laravel Nova installed.");
         } else {
             $this->line("Laravel Nova already installed, skipping Composer install.");
         }
 
-        // Publish assets safely
-        $novaAssets = public_path('vendor/nova');
-        if (! File::exists($novaAssets)) {
+        // Step 3: Publish Nova assets/migrations
+        $novaMigration = database_path('migrations/*_create_action_events_table.php');
+        if (empty(File::glob($novaMigration))) {
             $this->callSilent('vendor:publish', [
                 '--provider' => 'Laravel\Nova\NovaServiceProvider',
                 '--force' => true
             ]);
-            $this->info("✅ Nova assets published.");
+            $this->info("✅ Nova assets and migrations published.");
         } else {
-            $this->line("Nova assets already published, skipping.");
+            $this->line("Nova migrations already exist, skipping publish.");
         }
 
-        // Run migrations safely (ignore duplicates)
+        // Step 4: Run migrations
         $this->callSilent('migrate', ['--force' => true]);
-        $this->info("✅ Migrations applied.");
+        $this->info("✅ Nova migrations applied.");
     }
 
     protected function installMediaLibrary(): void
     {
-        $this->info("Publishing Spatie MediaLibrary migrations...");
+        $this->info("Publishing Spatie MediaLibrary assets/migrations...");
 
         $mediaMigration = database_path('migrations/*_create_media_table.php');
         if (empty(File::glob($mediaMigration))) {
             $this->callSilent('vendor:publish', [
                 '--provider' => 'Spatie\MediaLibrary\MediaLibraryServiceProvider',
-                '--tag' => 'migrations',
                 '--force' => true
             ]);
-            $this->info("✅ MediaLibrary migrations published.");
+            $this->info("✅ MediaLibrary assets and migrations published.");
         } else {
             $this->line("MediaLibrary migrations already exist, skipping publish.");
         }
@@ -87,7 +101,6 @@ class InstallCommand extends Command
         if (empty(File::glob($permissionMigration))) {
             $this->callSilent('vendor:publish', [
                 '--provider' => 'Spatie\Permission\PermissionServiceProvider',
-                '--tag' => 'migrations',
                 '--force' => true
             ]);
             $this->info("✅ Permission migrations published.");
