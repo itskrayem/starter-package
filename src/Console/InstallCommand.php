@@ -36,10 +36,11 @@ class InstallCommand extends Command
     {
         $this->info("Publishing Laravel Nova assets and migrations...");
 
-        if (! class_exists('CreateActionEventsTable')) {
+        $novaMigration = database_path('migrations/*_create_action_events_table.php');
+        if (empty(File::glob($novaMigration))) {
             $this->callSilent('vendor:publish', [
                 '--provider' => 'Laravel\Nova\NovaServiceProvider',
-                '--force' => true,
+                '--force' => true
             ]);
             $this->info("✅ Nova assets and migrations published.");
         } else {
@@ -54,10 +55,11 @@ class InstallCommand extends Command
     {
         $this->info("Publishing Spatie MediaLibrary assets and migrations...");
 
-        if (! class_exists('CreateMediaTable')) {
+        $mediaMigration = database_path('migrations/*_create_media_table.php');
+        if (empty(File::glob($mediaMigration))) {
             $this->callSilent('vendor:publish', [
                 '--provider' => 'Spatie\MediaLibrary\MediaLibraryServiceProvider',
-                '--force' => true,
+                '--force' => true
             ]);
             $this->info("✅ MediaLibrary assets and migrations published.");
         } else {
@@ -71,11 +73,12 @@ class InstallCommand extends Command
     protected function installPermission(): void
     {
         $this->info("Installing Spatie Permission...");
+        $permissionMigration = database_path('migrations/*_create_permission_tables.php');
 
-        if (! class_exists('CreatePermissionTables')) {
+        if (empty(File::glob($permissionMigration))) {
             $this->callSilent('vendor:publish', [
                 '--provider' => 'Spatie\Permission\PermissionServiceProvider',
-                '--force' => true,
+                '--force' => true
             ]);
             $this->info("✅ Permission migrations published.");
         } else {
