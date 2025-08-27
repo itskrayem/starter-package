@@ -32,64 +32,63 @@ class InstallCommand extends Command
         return self::SUCCESS;
     }
 
-   protected function installNova(): void
-{
-    $this->info("Publishing Laravel Nova assets and migrations...");
+    protected function installNova(): void
+    {
+        $this->info("Publishing Laravel Nova assets and migrations...");
 
-    $novaMigrationClass = 'CreateActionEventsTable';
-    if (! class_exists($novaMigrationClass)) {
-        $this->callSilent('vendor:publish', [
-            '--provider' => 'Laravel\Nova\NovaServiceProvider',
-            '--force' => true
-        ]);
-        $this->info("✅ Nova assets and migrations published.");
-    } else {
-        $this->line("Nova migrations already exist, skipping publish.");
+        $novaMigration = database_path('migrations/*_create_action_events_table.php');
+        if (empty(File::glob($novaMigration))) {
+            $this->callSilent('vendor:publish', [
+                '--provider' => 'Laravel\Nova\NovaServiceProvider',
+                '--force' => true
+            ]);
+            $this->info("✅ Nova assets and migrations published.");
+        } else {
+            $this->line("Nova migrations already exist, skipping publish.");
+        }
+
+        $this->callSilent('migrate', ['--force' => true]);
+        $this->info("✅ Nova migrations applied.");
     }
 
-    $this->callSilent('migrate', ['--force' => true]);
-    $this->info("✅ Nova migrations applied.");
-}
+    protected function installMediaLibrary(): void
+    {
+        $this->info("Publishing Spatie MediaLibrary assets and migrations...");
 
-protected function installMediaLibrary(): void
-{
-    $this->info("Publishing Spatie MediaLibrary assets and migrations...");
+        $mediaMigration = database_path('migrations/*_create_media_table.php');
+        if (empty(File::glob($mediaMigration))) {
+            $this->callSilent('vendor:publish', [
+                '--provider' => 'Spatie\MediaLibrary\MediaLibraryServiceProvider',
+                '--force' => true
+            ]);
+            $this->info("✅ MediaLibrary assets and migrations published.");
+        } else {
+            $this->line("MediaLibrary migrations already exist, skipping publish.");
+        }
 
-    $mediaMigrationClass = 'CreateMediaTable';
-    if (! class_exists($mediaMigrationClass)) {
-        $this->callSilent('vendor:publish', [
-            '--provider' => 'Spatie\MediaLibrary\MediaLibraryServiceProvider',
-            '--force' => true
-        ]);
-        $this->info("✅ MediaLibrary assets and migrations published.");
-    } else {
-        $this->line("MediaLibrary migrations already exist, skipping publish.");
+        $this->callSilent('migrate', ['--force' => true]);
+        $this->info("✅ MediaLibrary migrations applied.");
     }
 
-    $this->callSilent('migrate', ['--force' => true]);
-    $this->info("✅ MediaLibrary migrations applied.");
-}
+    protected function installPermission(): void
+    {
+        $this->info("Installing Spatie Permission...");
+        $permissionMigration = database_path('migrations/*_create_permission_tables.php');
 
-protected function installPermission(): void
-{
-    $this->info("Installing Spatie Permission...");
+        if (empty(File::glob($permissionMigration))) {
+            $this->callSilent('vendor:publish', [
+                '--provider' => 'Spatie\Permission\PermissionServiceProvider',
+                '--force' => true
+            ]);
+            $this->info("✅ Permission migrations published.");
+        } else {
+            $this->line("Permission migrations already exist, skipping publish.");
+        }
 
-    $permissionMigrationClass = 'CreatePermissionTables';
-    if (! class_exists($permissionMigrationClass)) {
-        $this->callSilent('vendor:publish', [
-            '--provider' => 'Spatie\Permission\PermissionServiceProvider',
-            '--force' => true
-        ]);
-        $this->info("✅ Permission migrations published.");
-    } else {
-        $this->line("Permission migrations already exist, skipping publish.");
+        $this->callSilent('migrate', ['--force' => true]);
+        $this->patchUserModelForHasRoles();
+        $this->info("✅ Permission feature installed.");
     }
-
-    $this->callSilent('migrate', ['--force' => true]);
-    $this->patchUserModelForHasRoles();
-    $this->info("✅ Permission feature installed.");
-}
-
 
     protected function patchUserModelForHasRoles(): void
     {
