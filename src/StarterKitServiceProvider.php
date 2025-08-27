@@ -1,11 +1,11 @@
 <?php
 
-namespace YourOrg\StarterKit;
+namespace ItsKrayem\StarterPackage;
 
 use Illuminate\Support\ServiceProvider;
-use YourOrg\StarterKit\Console\InstallCommand;
+use ItsKrayem\StarterPackage\Console\InstallCommand;
 
-class StarterKitServiceProvider extends ServiceProvider
+class StarterPackageServiceProvider extends ServiceProvider
 {
     public function register(): void
     {

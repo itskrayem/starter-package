@@ -1,85 +1,68 @@
 <?php
 
-namespace YourOrg\StarterKit\Console;
+namespace ItsKrayem\StarterPackage\Console;
 
 use Illuminate\Console\Command;
-use Symfony\Component\Process\Process;
 
 class InstallCommand extends Command
 {
-    protected $signature = 'starter:install {feature? : Optional feature like permission}';
-    protected $description = 'Install starter kit: Nova, core packages, optional features, publish assets, migrate DB';
+    protected $signature = 'starter:install {features?* : Optional features like permission}';
+    protected $description = 'Install the starter package: core packages, optional features, publish assets, run migrations';
 
     public function handle(): int
     {
-        $this->info("🚀 Starting Starter Kit Installation...");
+        $this->info("🚀 Starting Starter Package Installation...");
 
-        // Step 1: Install Nova 5
-        $this->info("Step 1: Installing Laravel Nova 5...");
-        if (! $this->runComposerRequire(['laravel/nova:^5.0'])) {
-            $this->error("❌ Nova installation failed. Make sure Composer auth is configured.");
-            return self::FAILURE;
-        }
-        $this->info("✅ Nova installed!");
-
-        // Step 2: Install core packages
-        $this->info("Step 2: Installing core packages...");
-        $this->runComposerRequire([
-            'tinymce/tinymce',
-            'spatie/laravel-medialibrary'
-        ]);
-        $this->info("✅ Core packages installed!");
-
-        // Step 3: Optional feature
-        $feature = $this->argument('feature');
-        if ($feature === 'permission') {
-            $this->info("Step 3: Installing Spatie Permission...");
-            $this->runComposerRequire(['spatie/laravel-permission']);
-            $this->callSilent('vendor:publish', [
-                '--provider' => 'Spatie\Permission\PermissionServiceProvider',
-                '--force' => true
-            ]);
-            $this->patchUserModelForHasRoles();
-            $this->info("✅ Spatie Permission installed and User model updated!");
-        }
-
-        // Step 4: Publish vendor assets
-        $this->info("Step 4: Publishing vendor assets...");
+        // Step 1: Publish core vendor assets
+        $this->info("Publishing core vendor assets...");
         $this->callSilent('vendor:publish', [
             '--provider' => 'Laravel\Nova\NovaServiceProvider',
             '--force' => true
         ]);
+
         $this->callSilent('vendor:publish', [
             '--provider' => 'Spatie\MediaLibrary\MediaLibraryServiceProvider',
             '--force' => true
         ]);
-        $this->info("✅ Vendor assets published!");
+        $this->info("✅ Core vendor assets published.");
 
-        // Step 5: Run migrations
-        $this->info("Step 5: Running migrations...");
+        // Step 2: Run core migrations
+        $this->info("Running core migrations...");
         $this->callSilent('migrate', ['--force' => true]);
-        $this->info("✅ Database migrated!");
+        $this->info("✅ Core migrations complete.");
 
-        $this->info("🎉 Starter Kit setup complete!");
+        // Step 3: Optional features
+        $features = $this->argument('features') ?? [];
+        foreach ($features as $feature) {
+            if ($feature === 'permission') {
+                $this->installPermissionFeature();
+            }
+            // Add more optional features here in the future
+        }
+
+        $this->info("🎉 Starter Package setup complete!");
         return self::SUCCESS;
     }
 
-    protected function runComposerRequire(array $packages): bool
+    protected function installPermissionFeature(): void
     {
-        $cmd = array_merge(['composer', 'require', '--with-all-dependencies'], $packages);
-        $process = new Process($cmd, base_path(), null, null, 900);
-        $process->setTty(true);
-        $process->run(function ($type, $buffer) {
-            $this->output->write($buffer);
-        });
-        return $process->isSuccessful();
+        $this->info("Installing Spatie Permission...");
+        $this->callSilent('vendor:publish', [
+            '--provider' => 'Spatie\Permission\PermissionServiceProvider',
+            '--force' => true
+        ]);
+
+        $this->callSilent('migrate', ['--force' => true]);
+
+        $this->patchUserModelForHasRoles();
+        $this->info("✅ Spatie Permission installed.");
     }
 
     protected function patchUserModelForHasRoles(): void
     {
         $userModel = app_path('Models/User.php');
         if (! file_exists($userModel)) {
-            $this->warn("User model not found at app/Models/User.php — skipped.");
+            $this->warn("User model not found at app/Models/User.php — skipped HasRoles patch.");
             return;
         }
 
