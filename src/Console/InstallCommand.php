@@ -7,31 +7,33 @@ use Illuminate\Console\Command;
 class InstallCommand extends Command
 {
     protected $signature = 'starter:install-core {features?* : Optional features like permission}';
-    protected $description = 'Install core starter package: publish assets, run migrations, and optional features';
+    protected $description = 'Install core starter package: publish assets, migrate DB, optional features';
 
     public function handle(): int
     {
         $this->info("🚀 Installing Starter Package Core...");
 
-        // Step 1: Publish core vendor assets
-        $this->info("Publishing core assets...");
+        // 1️⃣ Publish and migrate Nova
+        $this->info("Publishing and migrating Laravel Nova...");
         $this->callSilent('vendor:publish', [
             '--provider' => 'Laravel\Nova\NovaServiceProvider',
             '--force' => true
         ]);
 
+        // Nova does not have migrations by default; if your custom Nova tools need migration, publish/migrate them here
+        $this->callSilent('migrate', ['--force' => true]);
+        $this->info("✅ Nova setup complete.");
+
+        // 2️⃣ Publish and migrate MediaLibrary
+        $this->info("Publishing and migrating Spatie MediaLibrary...");
         $this->callSilent('vendor:publish', [
             '--provider' => 'Spatie\MediaLibrary\MediaLibraryServiceProvider',
             '--force' => true
         ]);
-        $this->info("✅ Core assets published.");
-
-        // Step 2: Run migrations
-        $this->info("Running migrations...");
         $this->callSilent('migrate', ['--force' => true]);
-        $this->info("✅ Migrations complete.");
+        $this->info("✅ MediaLibrary setup complete.");
 
-        // Step 3: Optional features
+        // 3️⃣ Optional features
         $features = $this->argument('features') ?? [];
         foreach ($features as $feature) {
             if ($feature === 'permission') {
@@ -39,7 +41,7 @@ class InstallCommand extends Command
             }
         }
 
-        $this->info("🎉 Starter Package core installation complete!");
+        $this->info("🎉 Starter Package installation complete!");
         return self::SUCCESS;
     }
 
@@ -52,21 +54,20 @@ class InstallCommand extends Command
         ]);
         $this->callSilent('migrate', ['--force' => true]);
         $this->patchUserModelForHasRoles();
-        $this->info("✅ Permission feature installed.");
+        $this->info("✅ Permission installed.");
     }
 
     protected function patchUserModelForHasRoles(): void
     {
         $userModel = app_path('Models/User.php');
-        if (!file_exists($userModel)) {
+        if (! file_exists($userModel)) {
             $this->warn("User model not found, skipping HasRoles patch.");
             return;
         }
 
         $content = file_get_contents($userModel);
 
-        // Add trait import if not exists
-        if (!str_contains($content, 'HasRoles')) {
+        if (! str_contains($content, 'HasRoles')) {
             $content = preg_replace(
                 '/(\nnamespace\s+App\\\Models;\s*\n(?:use[^\n]+\n)*)/m',
                 "$1use Spatie\\Permission\\Traits\\HasRoles;\n",
@@ -83,8 +84,6 @@ class InstallCommand extends Command
 
             file_put_contents($userModel, $content);
             $this->info("✅ User model patched with HasRoles.");
-        } else {
-            $this->line("User model already uses HasRoles, skipping patch.");
         }
     }
 }
