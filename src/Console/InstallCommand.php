@@ -32,47 +32,45 @@ class InstallCommand extends Command
         return self::SUCCESS;
     }
 
-    protected function installNova(): void
-    {
-        $this->info("Checking Laravel Nova...");
+   protected function installNova(): void
+{
+    $this->info("Checking Laravel Nova...");
 
-        // Step 1: Add Nova repository
-        exec('composer config repositories.nova composer https://nova.laravel.com');
+    // Step 1: Add Nova repository
+    exec('composer config repositories.nova composer https://nova.laravel.com');
 
-        // Step 2: Check if Nova is installed
-        if (! class_exists(\Laravel\Nova\Nova::class)) {
-
-            $this->info("Installing Laravel Nova via Composer...");
-            $output = [];
-            $status = null;
-            exec('composer require laravel/nova:^5.0', $output, $status);
-
-            if ($status !== 0) {
-                $this->error("❌ Nova installation failed. Make sure you configured your credentials: composer config http-basic.nova.laravel.com <EMAIL> <KEY>");
-                return;
-            }
-
-            $this->info("✅ Laravel Nova installed.");
-        } else {
-            $this->line("Laravel Nova already installed, skipping Composer install.");
-        }
-
-        // Step 3: Publish Nova assets/migrations
-        $novaMigration = database_path('migrations/*_create_action_events_table.php');
-        if (empty(File::glob($novaMigration))) {
-            $this->callSilent('vendor:publish', [
-                '--provider' => 'Laravel\Nova\NovaServiceProvider',
-                '--force' => true
-            ]);
-            $this->info("✅ Nova assets and migrations published.");
-        } else {
-            $this->line("Nova migrations already exist, skipping publish.");
-        }
-
-        // Step 4: Run migrations
-        $this->callSilent('migrate', ['--force' => true]);
-        $this->info("✅ Nova migrations applied.");
+    // Step 2: Install Nova if missing
+    if (! class_exists(\Laravel\Nova\Nova::class)) {
+        $this->info("Installing Laravel Nova via Composer...");
+        exec('composer require laravel/nova:^5.0');
+        $this->info("✅ Laravel Nova installed.");
     }
+
+    // Step 3: Publish Nova assets
+    $this->callSilent('vendor:publish', [
+        '--provider' => 'Laravel\Nova\NovaServiceProvider',
+        '--tag' => 'nova-assets',
+        '--force' => true
+    ]);
+    $this->info("✅ Nova assets published.");
+
+    // Step 4: Copy Nova migrations (avoid duplicates)
+    $novaMigrations = glob(base_path('vendor/laravel/nova/database/migrations/*.php'));
+    foreach ($novaMigrations as $file) {
+        $filename = basename($file);
+        $destination = database_path('migrations/' . date('Y_m_d_His') . '_' . $filename);
+        if (! file_exists($destination)) {
+            copy($file, $destination);
+        }
+        sleep(1); // ensure timestamp is unique for each file
+    }
+    $this->info("✅ Nova migrations copied.");
+
+    // Step 5: Run migrations
+    $this->callSilent('migrate', ['--force' => true]);
+    $this->info("✅ Nova migrations applied.");
+}
+
 
     protected function installMediaLibrary(): void
     {
