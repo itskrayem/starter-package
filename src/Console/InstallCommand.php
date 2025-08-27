@@ -8,13 +8,13 @@ use Illuminate\Support\Facades\File;
 class InstallCommand extends Command
 {
     protected $signature = 'starter:install-core {features?* : Optional features like permission}';
-    protected $description = 'Install core starter package: publish assets, migrate DB, optional features';
+    protected $description = 'Install core starter package: install Nova, publish assets, migrate DB, optional features';
 
     public function handle(): int
     {
         $this->info("🚀 Installing Starter Package Core...");
 
-        // Step 1: Nova
+        // Step 1: Install Nova
         $this->installNova();
 
         // Step 2: MediaLibrary
@@ -34,8 +34,23 @@ class InstallCommand extends Command
 
     protected function installNova(): void
     {
-        $this->info("Publishing Laravel Nova assets and migrations...");
+        $this->info("Checking Laravel Nova...");
 
+        // Step 1: Add Nova repository
+        exec('composer config repositories.nova composer https://nova.laravel.com');
+
+        // Step 2: Check if Nova is installed
+        $novaInstalled = class_exists(\Laravel\Nova\Nova::class);
+
+        if (! $novaInstalled) {
+            $this->info("Installing Laravel Nova via Composer...");
+            exec('composer require laravel/nova:^5.0');
+            $this->info("✅ Laravel Nova installed.");
+        } else {
+            $this->line("Laravel Nova already installed, skipping Composer install.");
+        }
+
+        // Step 3: Publish Nova assets/migrations
         $novaMigration = database_path('migrations/*_create_action_events_table.php');
         if (empty(File::glob($novaMigration))) {
             $this->callSilent('vendor:publish', [
@@ -47,6 +62,7 @@ class InstallCommand extends Command
             $this->line("Nova migrations already exist, skipping publish.");
         }
 
+        // Step 4: Run migrations
         $this->callSilent('migrate', ['--force' => true]);
         $this->info("✅ Nova migrations applied.");
     }
