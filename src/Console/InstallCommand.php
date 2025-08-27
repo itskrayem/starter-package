@@ -14,13 +14,9 @@ class InstallCommand extends Command
     {
         $this->info("🚀 Installing Starter Package Core...");
 
-        // Step 1: Install Nova
         $this->installNova();
-
-        // Step 2: MediaLibrary
         $this->installMediaLibrary();
 
-        // Step 3: Optional features
         $features = $this->argument('features') ?? [];
         foreach ($features as $feature) {
             if ($feature === 'permission') {
@@ -36,48 +32,45 @@ class InstallCommand extends Command
     {
         $this->info("Checking Laravel Nova...");
 
-        // Step 1: Add Nova repository
+        // Configure Nova repo for composer
         exec('composer config repositories.nova composer https://nova.laravel.com');
 
-        // Step 2: Check if Nova is installed
-        $novaInstalled = class_exists(\Laravel\Nova\Nova::class);
-
-        if (! $novaInstalled) {
+        if (! class_exists(\Laravel\Nova\Nova::class)) {
             $this->info("Installing Laravel Nova via Composer...");
-            exec('composer require laravel/nova:^5.0');
-            $this->info("✅ Laravel Nova installed.");
+            exec('composer require laravel/nova:^5.0 -W');
         } else {
             $this->line("Laravel Nova already installed, skipping Composer install.");
         }
 
-        // Step 3: Publish Nova assets/migrations
-        $novaMigration = database_path('migrations/*_create_action_events_table.php');
-        if (empty(File::glob($novaMigration))) {
+        // Publish assets safely
+        $novaAssets = public_path('vendor/nova');
+        if (! File::exists($novaAssets)) {
             $this->callSilent('vendor:publish', [
                 '--provider' => 'Laravel\Nova\NovaServiceProvider',
                 '--force' => true
             ]);
-            $this->info("✅ Nova assets and migrations published.");
+            $this->info("✅ Nova assets published.");
         } else {
-            $this->line("Nova migrations already exist, skipping publish.");
+            $this->line("Nova assets already published, skipping.");
         }
 
-        // Step 4: Run migrations
+        // Run migrations safely (ignore duplicates)
         $this->callSilent('migrate', ['--force' => true]);
-        $this->info("✅ Nova migrations applied.");
+        $this->info("✅ Migrations applied.");
     }
 
     protected function installMediaLibrary(): void
     {
-        $this->info("Publishing Spatie MediaLibrary assets and migrations...");
+        $this->info("Publishing Spatie MediaLibrary migrations...");
 
         $mediaMigration = database_path('migrations/*_create_media_table.php');
         if (empty(File::glob($mediaMigration))) {
             $this->callSilent('vendor:publish', [
                 '--provider' => 'Spatie\MediaLibrary\MediaLibraryServiceProvider',
+                '--tag' => 'migrations',
                 '--force' => true
             ]);
-            $this->info("✅ MediaLibrary assets and migrations published.");
+            $this->info("✅ MediaLibrary migrations published.");
         } else {
             $this->line("MediaLibrary migrations already exist, skipping publish.");
         }
@@ -89,11 +82,12 @@ class InstallCommand extends Command
     protected function installPermission(): void
     {
         $this->info("Installing Spatie Permission...");
-        $permissionMigration = database_path('migrations/*_create_permission_tables.php');
 
+        $permissionMigration = database_path('migrations/*_create_permission_tables.php');
         if (empty(File::glob($permissionMigration))) {
             $this->callSilent('vendor:publish', [
                 '--provider' => 'Spatie\Permission\PermissionServiceProvider',
+                '--tag' => 'migrations',
                 '--force' => true
             ]);
             $this->info("✅ Permission migrations published.");
