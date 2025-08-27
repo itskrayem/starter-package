@@ -3,7 +3,6 @@
 namespace ItsKrayem\StarterPackage\Console;
 
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\File;
 
 class InstallCommand extends Command
 {
@@ -14,13 +13,27 @@ class InstallCommand extends Command
     {
         $this->info("🚀 Installing Starter Package Core...");
 
-        // Step 1: Nova
-        $this->installNova();
+        // 1️⃣ Publish and migrate Nova
+        $this->info("Publishing and migrating Laravel Nova...");
+        $this->callSilent('vendor:publish', [
+            '--provider' => 'Laravel\Nova\NovaServiceProvider',
+            '--force' => true
+        ]);
 
-        // Step 2: MediaLibrary
-        $this->installMediaLibrary();
+        // Nova does not have migrations by default; if your custom Nova tools need migration, publish/migrate them here
+        $this->callSilent('migrate', ['--force' => true]);
+        $this->info("✅ Nova setup complete.");
 
-        // Step 3: Optional features
+        // 2️⃣ Publish and migrate MediaLibrary
+        $this->info("Publishing and migrating Spatie MediaLibrary...");
+        $this->callSilent('vendor:publish', [
+            '--provider' => 'Spatie\MediaLibrary\MediaLibraryServiceProvider',
+            '--force' => true
+        ]);
+        $this->callSilent('migrate', ['--force' => true]);
+        $this->info("✅ MediaLibrary setup complete.");
+
+        // 3️⃣ Optional features
         $features = $this->argument('features') ?? [];
         foreach ($features as $feature) {
             if ($feature === 'permission') {
@@ -32,73 +45,27 @@ class InstallCommand extends Command
         return self::SUCCESS;
     }
 
-    protected function installNova(): void
-    {
-        $this->info("Publishing Laravel Nova assets and migrations...");
-
-        $novaMigration = database_path('migrations/*_create_action_events_table.php');
-        if (empty(File::glob($novaMigration))) {
-            $this->callSilent('vendor:publish', [
-                '--provider' => 'Laravel\Nova\NovaServiceProvider',
-                '--force' => true
-            ]);
-            $this->info("✅ Nova assets and migrations published.");
-        } else {
-            $this->line("Nova migrations already exist, skipping publish.");
-        }
-
-        $this->callSilent('migrate', ['--force' => true]);
-        $this->info("✅ Nova migrations applied.");
-    }
-
-    protected function installMediaLibrary(): void
-    {
-        $this->info("Publishing Spatie MediaLibrary assets and migrations...");
-
-        $mediaMigration = database_path('migrations/*_create_media_table.php');
-        if (empty(File::glob($mediaMigration))) {
-            $this->callSilent('vendor:publish', [
-                '--provider' => 'Spatie\MediaLibrary\MediaLibraryServiceProvider',
-                '--force' => true
-            ]);
-            $this->info("✅ MediaLibrary assets and migrations published.");
-        } else {
-            $this->line("MediaLibrary migrations already exist, skipping publish.");
-        }
-
-        $this->callSilent('migrate', ['--force' => true]);
-        $this->info("✅ MediaLibrary migrations applied.");
-    }
-
     protected function installPermission(): void
     {
         $this->info("Installing Spatie Permission...");
-        $permissionMigration = database_path('migrations/*_create_permission_tables.php');
-
-        if (empty(File::glob($permissionMigration))) {
-            $this->callSilent('vendor:publish', [
-                '--provider' => 'Spatie\Permission\PermissionServiceProvider',
-                '--force' => true
-            ]);
-            $this->info("✅ Permission migrations published.");
-        } else {
-            $this->line("Permission migrations already exist, skipping publish.");
-        }
-
+        $this->callSilent('vendor:publish', [
+            '--provider' => 'Spatie\Permission\PermissionServiceProvider',
+            '--force' => true
+        ]);
         $this->callSilent('migrate', ['--force' => true]);
         $this->patchUserModelForHasRoles();
-        $this->info("✅ Permission feature installed.");
+        $this->info("✅ Permission installed.");
     }
 
     protected function patchUserModelForHasRoles(): void
     {
         $userModel = app_path('Models/User.php');
-        if (! File::exists($userModel)) {
+        if (! file_exists($userModel)) {
             $this->warn("User model not found, skipping HasRoles patch.");
             return;
         }
 
-        $content = File::get($userModel);
+        $content = file_get_contents($userModel);
 
         if (! str_contains($content, 'HasRoles')) {
             $content = preg_replace(
@@ -115,7 +82,7 @@ class InstallCommand extends Command
                 1
             ) ?? $content;
 
-            File::put($userModel, $content);
+            file_put_contents($userModel, $content);
             $this->info("✅ User model patched with HasRoles.");
         }
     }
