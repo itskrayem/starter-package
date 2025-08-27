@@ -1,5 +1,5 @@
 {
-  "name": "yourcompany/laravel-app",
+  "name": "itskrayem/starter-package",
   "description": "Laravel application with starter package",
   "type": "project",
   "license": "proprietary",
@@ -14,7 +14,7 @@
   "repositories": [
     {
       "type": "vcs",
-      "url": "https://github.com/yourusername/starter-package.git"
+      "url": "https://github.com/itskrayem/starter-package.git"
     },
     {
       "type": "composer",
