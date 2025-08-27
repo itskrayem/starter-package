@@ -1,38 +1,36 @@
 {
-  "name": "itskrayem/starter-package",
-  "description": "Company Laravel Starter Package",
-  "type": "library",
+  "name": "yourcompany/laravel-app",
+  "description": "Laravel application with starter package",
+  "type": "project",
   "license": "proprietary",
   "require": {
-    "php": ">=8.1",
+    "php": "^8.1",
+    "laravel/framework": "^10.0",
+    "laravel/nova": "^5.0",
     "tinymce/tinymce": "^7.0",
     "spatie/laravel-medialibrary": "^11.0",
-    "spatie/laravel-permission": "^5.10",
-    "laravel/nova": "^5.0"
+    "itskrayem/starter-package": "dev-main"
   },
-  "autoload": {
-    "psr-4": {
-      "ItsKrayem\\StarterPackage\\": "src/"
-    }
-  },
-  "extra": {
-    "laravel": {
-      "providers": [
-        "ItsKrayem\\StarterPackage\\StarterPackageServiceProvider"
-      ]
-    }
-  },
-  "repositories": {
-    "nova": {
+  "repositories": [
+    {
+      "type": "vcs",
+      "url": "https://github.com/yourusername/starter-package.git"
+    },
+    {
       "type": "composer",
       "url": "https://nova.laravel.com"
     }
+  ],
+  "autoload": {
+    "psr-4": {
+      "App\\": "app/"
+    }
   },
+  "minimum-stability": "dev",
+  "prefer-stable": true,
   "scripts": {
     "post-autoload-dump": [
       "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump"
     ]
-  },
-  "minimum-stability": "dev",
-  "prefer-stable": true
+  }
 }
