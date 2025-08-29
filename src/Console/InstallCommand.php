@@ -87,48 +87,59 @@ class InstallCommand extends Command
     protected function copyNovaMigrations(): void
     {
         $novaMigrationsPath = base_path('vendor/laravel/nova/database/migrations/');
-        
+
         if (!is_dir($novaMigrationsPath)) {
             $this->warn("Nova migrations directory not found, skipping migration copy.");
             return;
         }
 
-        // Check if Nova migrations are already copied
-        $existingNovaMigrations = glob(database_path('migrations/*nova*.php'));
-        if (!empty($existingNovaMigrations)) {
-            $this->line("Nova migrations already exist, skipping copy.");
-            return;
-        }
-
         $novaMigrations = glob($novaMigrationsPath . '*.php');
         $timestamp = now();
-        
+
+        // Get all existing migration files
+        $allMigrationFiles = glob(database_path('migrations/*.php'));
+        $existingClassNames = [];
+        foreach ($allMigrationFiles as $migrationFile) {
+            $migrationContent = file_get_contents($migrationFile);
+            if (preg_match('/class\s+(\w+)\s+extends\s+Migration/', $migrationContent, $matches)) {
+                $existingClassNames[] = $matches[1];
+            }
+        }
+
         foreach ($novaMigrations as $file) {
             $filename = basename($file);
             $newFilename = $timestamp->format('Y_m_d_His') . '_nova_' . $filename;
             $destination = database_path('migrations/' . $newFilename);
-            
+
             // Read the original file content
             $content = file_get_contents($file);
-            
+
             // Generate a unique class name by prefixing with Nova and timestamp
             $originalClassName = $this->extractClassName($content);
             $newClassName = 'Nova' . $timestamp->format('YmdHis') . $originalClassName;
-            
+
+            // Check if this class name already exists in any migration file
+            if (in_array($newClassName, $existingClassNames)) {
+                $this->line("Migration with class {$newClassName} already exists, skipping: {$filename}");
+                $timestamp->addSecond();
+                continue;
+            }
+
             // Replace the class name in the content
             $content = str_replace(
                 "class {$originalClassName}",
                 "class {$newClassName}",
                 $content
             );
-            
+
             // Write the modified content to the new file
             file_put_contents($destination, $content);
             $this->line("Copied and renamed: {$filename} -> {$newFilename}");
-            
+
+            $existingClassNames[] = $newClassName;
             $timestamp->addSecond(); // Ensure unique timestamps
         }
-        
+
         $this->info("✅ Nova migrations copied with unique class names.");
     }
 
