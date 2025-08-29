@@ -4,7 +4,6 @@ namespace ItsKrayem\StarterPackage\Console;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Carbon;
 
 class InstallCommand extends Command
 {
@@ -34,7 +33,7 @@ class InstallCommand extends Command
     protected function cleanupDuplicateNovaMigrations(): void
     {
         // Remove any existing Nova migrations that might cause conflicts
-    $existingNovaMigrations = glob(base_path('database/migrations/*nova*.php'));
+        $existingNovaMigrations = glob(database_path('migrations/*nova*.php'));
         
         if (!empty($existingNovaMigrations)) {
             $this->warn("Found existing Nova migrations, cleaning up duplicates...");
@@ -87,32 +86,30 @@ class InstallCommand extends Command
 
     protected function copyNovaMigrations(): void
     {
-    $novaMigrationsPath = base_path('vendor/laravel/nova/database/migrations/');
+        $novaMigrationsPath = base_path('vendor/laravel/nova/database/migrations/');
 
         if (!is_dir($novaMigrationsPath)) {
             $this->warn("Nova migrations directory not found, skipping migration copy.");
             return;
         }
 
-    $novaMigrations = glob($novaMigrationsPath . '*.php');
-    $timestamp = Carbon::now();
+        $novaMigrations = glob($novaMigrationsPath . '*.php');
+        $timestamp = now();
 
-    // Get all existing migration files
-    $allMigrationFiles = glob(base_path('database/migrations/*.php'));
+        // Get all existing migration files
+        $allMigrationFiles = glob(database_path('migrations/*.php'));
         $existingClassNames = [];
-        $existingClassFiles = [];
         foreach ($allMigrationFiles as $migrationFile) {
             $migrationContent = file_get_contents($migrationFile);
             if (preg_match('/class\s+(\w+)\s+extends\s+Migration/', $migrationContent, $matches)) {
                 $existingClassNames[] = $matches[1];
-                $existingClassFiles[$matches[1]] = $migrationFile;
             }
         }
 
         foreach ($novaMigrations as $file) {
             $filename = basename($file);
             $newFilename = $timestamp->format('Y_m_d_His') . '_nova_' . $filename;
-            $destination = base_path('database/migrations/' . $newFilename);
+            $destination = database_path('migrations/' . $newFilename);
 
             // Read the original file content
             $content = file_get_contents($file);
@@ -121,13 +118,11 @@ class InstallCommand extends Command
             $originalClassName = $this->extractClassName($content);
             $newClassName = 'Nova' . $timestamp->format('YmdHis') . $originalClassName;
 
-            // If a migration file with this class name exists, remove it first
-            if (isset($existingClassFiles[$newClassName])) {
-                unlink($existingClassFiles[$newClassName]);
-                $this->line("Removed existing migration with class {$newClassName}: " . basename($existingClassFiles[$newClassName]));
-                // Remove from arrays to avoid false positives in next iterations
-                unset($existingClassFiles[$newClassName]);
-                $existingClassNames = array_diff($existingClassNames, [$newClassName]);
+            // Check if this class name already exists in any migration file
+            if (in_array($newClassName, $existingClassNames)) {
+                $this->line("Migration with class {$newClassName} already exists, skipping: {$filename}");
+                $timestamp->addSecond();
+                continue;
             }
 
             // Replace the class name in the content
@@ -142,7 +137,6 @@ class InstallCommand extends Command
             $this->line("Copied and renamed: {$filename} -> {$newFilename}");
 
             $existingClassNames[] = $newClassName;
-            $existingClassFiles[$newClassName] = $destination;
             $timestamp->addSecond(); // Ensure unique timestamps
         }
 
@@ -205,7 +199,7 @@ class InstallCommand extends Command
     {
         $this->info("Setting up Spatie MediaLibrary...");
 
-    $mediaMigration = base_path('database/migrations/*_create_media_table.php');
+        $mediaMigration = database_path('migrations/*_create_media_table.php');
         
         if (empty(File::glob($mediaMigration))) {
             $this->publishAssets(
@@ -225,7 +219,7 @@ class InstallCommand extends Command
     {
         $this->info("Setting up Spatie Permission...");
 
-    $permissionMigration = base_path('database/migrations/*_create_permission_tables.php');
+        $permissionMigration = database_path('migrations/*_create_permission_tables.php');
         
         if (empty(File::glob($permissionMigration))) {
             $this->publishAssets(
@@ -244,7 +238,7 @@ class InstallCommand extends Command
 
     protected function patchUserModelForHasRoles(): void
     {
-    $userModelPath = base_path('app/Models/User.php');
+        $userModelPath = app_path('Models/User.php');
         
         if (!File::exists($userModelPath)) {
             $this->warn("User model not found at {$userModelPath}, skipping HasRoles patch.");
