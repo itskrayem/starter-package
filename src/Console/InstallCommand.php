@@ -20,6 +20,12 @@ class InstallCommand extends Command
             $this->installMediaLibrary();
             $this->installOptionalFeatures();
 
+            // Run all migrations once at the end
+            $this->runMigrations();
+
+            // Seed after migrations
+            $this->runSeeding();
+
             $this->info("🎉 Starter Package installation complete!");
             return Command::SUCCESS;
         } catch (\Exception $e) {
@@ -42,208 +48,91 @@ class InstallCommand extends Command
 
     protected function installNova(): void
     {
-        $this->info("Setting up Laravel Nova...");
+        $this->info("Setting up Laravel Nova migrations...");
 
-        // Add Nova repository if not already configured
-        $this->executeCommand('composer config repositories.nova composer https://nova.laravel.com');
-
-        // Install Nova if not present
-        if (!class_exists(\Laravel\Nova\Nova::class)) {
-            $this->info("Installing Laravel Nova via Composer...");
-            $this->executeCommand('composer require laravel/nova:^5.0');
-            $this->info("✅ Laravel Nova installed.");
-        } else {
-            $this->line("Laravel Nova is already installed.");
-        }
-
-        // Clean up any existing Nova migrations to prevent conflicts
-        $this->cleanupExistingNovaMigrations();
-
-        // Publish Nova assets
-        $this->call('vendor:publish', [
-            '--provider' => 'Laravel\Nova\NovaServiceProvider',
-            '--tag' => 'nova-assets',
-            '--force' => true
-        ]);
-        $this->info("✅ Nova assets published.");
-
-        // Publish Nova migrations properly
-        $this->publishNovaMigrations();
-
-        // Run migrations
-        $this->runMigrations();
-        
-        $this->info("✅ Nova setup complete.");
+        $this->publishMigrationsWithFallback(
+            provider: 'Laravel\\Nova\\NovaServiceProvider',
+            tag: 'nova-migrations',
+            vendorPath: base_path('vendor/laravel/nova/database/migrations'),
+            expectedPatterns: [
+                database_path('migrations/*nova*.php'),
+                database_path('migrations/*action_events*.php'),
+                database_path('migrations/*nova_notifications*.php'),
+                database_path('migrations/*field_attachments*.php'),
+            ],
+            packageName: 'Nova'
+        );
     }
 
-    protected function cleanupExistingNovaMigrations(): void
-    {
-        $patterns = [
-            database_path('migrations/*nova*.php'),
-            database_path('migrations/*action_events*.php'),
-            database_path('migrations/*nova_notifications*.php'),
-            database_path('migrations/*field_attachments*.php'),
-        ];
-
-        $cleaned = false;
-        foreach ($patterns as $pattern) {
-            $files = File::glob($pattern);
-            if (!empty($files)) {
-                $cleaned = true;
-                foreach ($files as $file) {
-                    File::delete($file);
-                    $this->line("Removed existing migration: " . basename($file));
-                }
-            }
-        }
-
-        if ($cleaned) {
-            $this->info("✅ Existing Nova migrations cleaned up.");
-        }
-    }
-
-    protected function publishNovaMigrations(): void
-    {
-        // Try to publish Nova migrations using the proper tag
-        try {
-            $this->call('vendor:publish', [
-                '--provider' => 'Laravel\Nova\NovaServiceProvider',
-                '--tag' => 'nova-migrations',
-                '--force' => true
-            ]);
-            $this->info("✅ Nova migrations published via tag.");
-        } catch (\Exception $e) {
-            // If tag doesn't exist, copy them manually but safely
-            $this->info("Publishing Nova migrations manually...");
-            $this->copyNovaMigrationsSafely();
-        }
-    }
-
-    protected function copyNovaMigrationsSafely(): void
-    {
-        $novaMigrationsPath = base_path('vendor/laravel/nova/database/migrations/');
-
-        if (!is_dir($novaMigrationsPath)) {
-            $this->warn("Nova migrations directory not found.");
+    // Generic publish with fallback to copying migrations from vendor
+    protected function publishMigrationsWithFallback(
+        string $provider,
+        string $tag,
+        string $vendorPath,
+        array $expectedPatterns,
+        string $packageName
+    ): void {
+        if ($this->migrationsExist($expectedPatterns)) {
+            $this->line("{$packageName} migrations already present. Skipping publish.");
             return;
         }
 
-        $novaMigrations = File::files($novaMigrationsPath);
-        $timestamp = now();
+        $this->call('vendor:publish', [
+            '--provider' => $provider,
+            '--tag' => $tag,
+            '--force' => true,
+        ]);
 
-        foreach ($novaMigrations as $file) {
-            if (!Str::endsWith($file->getFilename(), '.php')) {
-                continue;
-            }
-
-            // Generate a unique filename with current timestamp
-            $originalName = $file->getFilename();
-            $newName = $timestamp->format('Y_m_d_His') . '_' . str_replace('.php', '', $originalName) . '.php';
-            $destination = database_path('migrations/' . $newName);
-
-            // Read original content
-            $content = File::get($file->getPathname());
-            
-            // Extract original class name
-            if (preg_match('/class\s+(\w+)\s+extends/', $content, $matches)) {
-                $originalClass = $matches[1];
-                
-                // Create a unique class name using timestamp
-                $newClass = 'Nova' . $timestamp->format('YmdHis') . $originalClass;
-                
-                // Replace class name in content
-                $content = str_replace(
-                    "class {$originalClass}",
-                    "class {$newClass}",
-                    $content
-                );
-                
-                // Write to destination
-                File::put($destination, $content);
-                $this->line("Published: {$originalName} -> {$newName}");
-                
-                // Increment timestamp by 1 second for next migration
-                $timestamp->addSecond();
-            }
+        if ($this->migrationsExist($expectedPatterns)) {
+            $this->info("✅ {$packageName} migrations published.");
+            return;
         }
 
-        $this->info("✅ Nova migrations copied successfully.");
+        $this->info("No {$packageName} migrations published via tag. Falling back to manual copy...");
+        $this->copyGenericMigrationsSafely($vendorPath);
+
+        if ($this->migrationsExist($expectedPatterns)) {
+            $this->info("✅ {$packageName} migrations copied from vendor.");
+        } else {
+            $this->warn("⚠️ {$packageName} migrations still not found. Please verify the installed package version.");
+        }
     }
 
-    protected function executeCommand(string $command): void
+    protected function migrationsExist(array $patterns): bool
     {
-        $this->info("Executing: {$command}");
-        
-        $process = proc_open($command, [
-            0 => ['pipe', 'r'],
-            1 => ['pipe', 'w'],
-            2 => ['pipe', 'w']
-        ], $pipes, base_path());
-
-        if (!is_resource($process)) {
-            throw new \Exception("Failed to execute command: {$command}");
+        foreach ($patterns as $pattern) {
+            $files = File::glob($pattern);
+            if (!empty($files)) {
+                return true;
+            }
         }
-
-        fclose($pipes[0]);
-        $output = stream_get_contents($pipes[1]);
-        $error = stream_get_contents($pipes[2]);
-        fclose($pipes[1]);
-        fclose($pipes[2]);
-
-        $exitCode = proc_close($process);
-
-        if ($exitCode !== 0) {
-            throw new \Exception("Command failed: {$command}\nOutput: {$output}\nError: {$error}");
-        }
-
-        if (!empty($output)) {
-            $this->line($output);
-        }
+        return false;
     }
 
     protected function installMediaLibrary(): void
     {
         $this->info("Setting up Spatie MediaLibrary...");
 
-        // Check if migrations already exist
-        $mediaMigration = File::glob(database_path('migrations/*_create_media_table.php'));
-        
-        if (empty($mediaMigration)) {
-            $this->call('vendor:publish', [
-                '--provider' => 'Spatie\MediaLibrary\MediaLibraryServiceProvider',
-                '--tag' => 'laravel-medialibrary-migrations',
-                '--force' => true
-            ]);
-            $this->info("✅ MediaLibrary migrations published.");
-        } else {
-            $this->line("MediaLibrary migrations already exist, skipping publish.");
-        }
-
-        // Run migrations
-        $this->runMigrations();
-        $this->info("✅ MediaLibrary setup complete.");
+        $this->publishMigrationsWithFallback(
+            provider: 'Spatie\\MediaLibrary\\MediaLibraryServiceProvider',
+            tag: 'laravel-medialibrary-migrations',
+            vendorPath: base_path('vendor/spatie/laravel-medialibrary/database/migrations'),
+            expectedPatterns: [database_path('migrations/*_create_media_table.php')],
+            packageName: 'MediaLibrary'
+        );
     }
 
     protected function installPermission(): void
     {
         $this->info("Setting up Spatie Permission...");
 
-        // Check if migrations already exist
-        $permissionMigration = File::glob(database_path('migrations/*_create_permission_tables.php'));
-        
-        if (empty($permissionMigration)) {
-            $this->call('vendor:publish', [
-                '--provider' => 'Spatie\Permission\PermissionServiceProvider',
-                '--tag' => 'laravel-permission-migrations',
-                '--force' => true
-            ]);
-            $this->info("✅ Permission migrations published.");
-        } else {
-            $this->line("Permission migrations already exist, skipping publish.");
-        }
-
-        // Run migrations
-        $this->runMigrations();
+        $this->publishMigrationsWithFallback(
+            provider: 'Spatie\\Permission\\PermissionServiceProvider',
+            tag: 'laravel-permission-migrations',
+            vendorPath: base_path('vendor/spatie/laravel-permission/database/migrations'),
+            expectedPatterns: [database_path('migrations/*_create_permission_tables.php')],
+            packageName: 'Permission'
+        );
         
         // Patch User model
         $this->patchUserModelForHasRoles();
@@ -260,6 +149,18 @@ class InstallCommand extends Command
             $this->info("✅ Migrations applied successfully.");
         } catch (\Exception $e) {
             $this->warn("⚠️ Some migrations may have failed: " . $e->getMessage());
+            // Continue execution, don't fail completely
+        }
+    }
+
+    protected function runSeeding(): void
+    {
+        $this->info("Seeding database...");
+        try {
+            $this->call('db:seed', ['--force' => true]);
+            $this->info("✅ Seeding completed.");
+        } catch (\Exception $e) {
+            $this->warn("⚠️ Seeding may have failed: " . $e->getMessage());
             // Continue execution, don't fail completely
         }
     }
@@ -343,5 +244,57 @@ class InstallCommand extends Command
         );
 
         return $replacement ?? $content;
+    }
+
+    /**
+     * Generic migration copier: copies .php files from a vendor migration folder
+     * into the app's database/migrations with unique timestamps. If the migration
+     * file already exists in destination (by suffix), it's skipped.
+     */
+    protected function copyGenericMigrationsSafely(string $sourceDir): void
+    {
+        if (!is_dir($sourceDir)) {
+            $this->warn("Source migrations directory not found: {$sourceDir}");
+            return;
+        }
+
+        $files = File::files($sourceDir);
+        if (empty($files)) {
+            $this->warn("No migration files found in: {$sourceDir}");
+            return;
+        }
+
+        $timestamp = now();
+        $copiedAny = false;
+
+        foreach ($files as $file) {
+            $name = $file->getFilename();
+            // Accept both .php and .php.stub
+            $isPhp = Str::endsWith($name, '.php');
+            $isStub = Str::endsWith($name, '.php.stub');
+            if (!$isPhp && !$isStub) {
+                continue;
+            }
+            // If a migration with this suffix already exists, skip
+            $baseSuffix = $isStub ? Str::replaceLast('.stub', '', $name) : $name;
+            $existing = File::glob(database_path('migrations/*_' . $baseSuffix));
+            if (!empty($existing)) {
+                continue;
+            }
+
+            $finalName = $baseSuffix; // ensure .php extension only
+            $newName = $timestamp->format('Y_m_d_His') . '_' . $finalName;
+            $destination = database_path('migrations/' . $newName);
+
+            // Copy and, if stub, strip .stub by writing to destination without .stub
+            File::copy($file->getPathname(), $destination);
+            $this->line("Published: {$name} -> {$newName}");
+            $timestamp->addSecond();
+            $copiedAny = true;
+        }
+
+        if ($copiedAny) {
+            $this->info("✅ Migrations copied successfully from {$sourceDir}.");
+        }
     }
 }
