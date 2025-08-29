@@ -59,8 +59,19 @@ class InstallCommand extends Command
         // Clean up any existing Nova migrations to prevent conflicts
         $this->cleanupExistingNovaMigrations();
 
-        // Publish Nova assets and migrations using Laravel's built-in system
-        $this->call('nova:install');
+        // Publish Nova assets
+        $this->call('vendor:publish', [
+            '--provider' => 'Laravel\Nova\NovaServiceProvider',
+            '--tag' => 'nova-assets',
+            '--force' => true
+        ]);
+        $this->info("✅ Nova assets published.");
+
+        // Publish Nova migrations properly
+        $this->publishNovaMigrations();
+
+        // Run migrations
+        $this->runMigrations();
         
         $this->info("✅ Nova setup complete.");
     }
@@ -89,6 +100,74 @@ class InstallCommand extends Command
         if ($cleaned) {
             $this->info("✅ Existing Nova migrations cleaned up.");
         }
+    }
+
+    protected function publishNovaMigrations(): void
+    {
+        // Try to publish Nova migrations using the proper tag
+        try {
+            $this->call('vendor:publish', [
+                '--provider' => 'Laravel\Nova\NovaServiceProvider',
+                '--tag' => 'nova-migrations',
+                '--force' => true
+            ]);
+            $this->info("✅ Nova migrations published via tag.");
+        } catch (\Exception $e) {
+            // If tag doesn't exist, copy them manually but safely
+            $this->info("Publishing Nova migrations manually...");
+            $this->copyNovaMigrationsSafely();
+        }
+    }
+
+    protected function copyNovaMigrationsSafely(): void
+    {
+        $novaMigrationsPath = base_path('vendor/laravel/nova/database/migrations/');
+
+        if (!is_dir($novaMigrationsPath)) {
+            $this->warn("Nova migrations directory not found.");
+            return;
+        }
+
+        $novaMigrations = File::files($novaMigrationsPath);
+        $timestamp = now();
+
+        foreach ($novaMigrations as $file) {
+            if (!Str::endsWith($file->getFilename(), '.php')) {
+                continue;
+            }
+
+            // Generate a unique filename with current timestamp
+            $originalName = $file->getFilename();
+            $newName = $timestamp->format('Y_m_d_His') . '_' . str_replace('.php', '', $originalName) . '.php';
+            $destination = database_path('migrations/' . $newName);
+
+            // Read original content
+            $content = File::get($file->getPathname());
+            
+            // Extract original class name
+            if (preg_match('/class\s+(\w+)\s+extends/', $content, $matches)) {
+                $originalClass = $matches[1];
+                
+                // Create a unique class name using timestamp
+                $newClass = 'Nova' . $timestamp->format('YmdHis') . $originalClass;
+                
+                // Replace class name in content
+                $content = str_replace(
+                    "class {$originalClass}",
+                    "class {$newClass}",
+                    $content
+                );
+                
+                // Write to destination
+                File::put($destination, $content);
+                $this->line("Published: {$originalName} -> {$newName}");
+                
+                // Increment timestamp by 1 second for next migration
+                $timestamp->addSecond();
+            }
+        }
+
+        $this->info("✅ Nova migrations copied successfully.");
     }
 
     protected function executeCommand(string $command): void
