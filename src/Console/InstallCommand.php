@@ -15,6 +15,9 @@ class InstallCommand extends Command
         $this->info("🚀 Installing Starter Package Core...");
 
         try {
+            // Clean up any existing duplicate Nova migrations first
+            $this->cleanupDuplicateNovaMigrations();
+            
             $this->installNova();
             $this->installMediaLibrary();
             $this->installOptionalFeatures();
@@ -24,6 +27,23 @@ class InstallCommand extends Command
         } catch (\Exception $e) {
             $this->error("❌ Installation failed: {$e->getMessage()}");
             return Command::FAILURE;
+        }
+    }
+
+    protected function cleanupDuplicateNovaMigrations(): void
+    {
+        // Remove any existing Nova migrations that might cause conflicts
+        $existingNovaMigrations = glob(database_path('migrations/*nova*.php'));
+        
+        if (!empty($existingNovaMigrations)) {
+            $this->warn("Found existing Nova migrations, cleaning up duplicates...");
+            
+            foreach ($existingNovaMigrations as $migration) {
+                unlink($migration);
+                $this->line("Removed: " . basename($migration));
+            }
+            
+            $this->info("✅ Cleanup complete.");
         }
     }
 
@@ -73,22 +93,53 @@ class InstallCommand extends Command
             return;
         }
 
+        // Check if Nova migrations are already copied
+        $existingNovaMigrations = glob(database_path('migrations/*nova*.php'));
+        if (!empty($existingNovaMigrations)) {
+            $this->line("Nova migrations already exist, skipping copy.");
+            return;
+        }
+
         $novaMigrations = glob($novaMigrationsPath . '*.php');
         $timestamp = now();
         
         foreach ($novaMigrations as $file) {
             $filename = basename($file);
-            $destination = database_path('migrations/' . $timestamp->format('Y_m_d_His') . '_nova_' . $filename);
+            $newFilename = $timestamp->format('Y_m_d_His') . '_nova_' . $filename;
+            $destination = database_path('migrations/' . $newFilename);
             
-            if (!file_exists($destination)) {
-                copy($file, $destination);
-                $this->line("Copied: {$filename}");
-            }
+            // Read the original file content
+            $content = file_get_contents($file);
+            
+            // Generate a unique class name by prefixing with Nova and timestamp
+            $originalClassName = $this->extractClassName($content);
+            $newClassName = 'Nova' . $timestamp->format('YmdHis') . $originalClassName;
+            
+            // Replace the class name in the content
+            $content = str_replace(
+                "class {$originalClassName}",
+                "class {$newClassName}",
+                $content
+            );
+            
+            // Write the modified content to the new file
+            file_put_contents($destination, $content);
+            $this->line("Copied and renamed: {$filename} -> {$newFilename}");
             
             $timestamp->addSecond(); // Ensure unique timestamps
         }
         
-        $this->info("✅ Nova migrations copied.");
+        $this->info("✅ Nova migrations copied with unique class names.");
+    }
+
+    protected function extractClassName(string $content): string
+    {
+        if (preg_match('/class\s+(\w+)\s+extends\s+Migration/', $content, $matches)) {
+            return $matches[1];
+        }
+        
+        // Fallback: generate a generic class name
+        return 'NovaMigration';
     }
 
     protected function executeCommand(string $command): void
