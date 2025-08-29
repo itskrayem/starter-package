@@ -8,7 +8,7 @@ use Illuminate\Support\Str;
 
 class InstallCommand extends Command
 {
-    protected $signature = 'starter:install-core {features?*}';
+    protected $signature = 'starter:install-core {features?*} {--nova-email=} {--nova-key=} {--nova-version=^5.0}';
     protected $description = 'Install starter package: Nova, MediaLibrary, and optional features';
 
     public function handle(): int
@@ -48,7 +48,32 @@ class InstallCommand extends Command
 
     protected function installNova(): void
     {
-        $this->info("Setting up Laravel Nova migrations...");
+        $this->info("Setting up Laravel Nova...");
+
+        // Configure Nova repository
+        $this->runComposerCommand('composer config repositories.nova composer https://nova.laravel.com');
+
+        // Install Nova if not present
+        if (!class_exists(\Laravel\Nova\Nova::class)) {
+            $this->info("Installing Laravel Nova via Composer...");
+            $this->ensureNovaComposerAuth();
+            $version = (string) ($this->option('nova-version') ?: '^5.0');
+            $this->runComposerCommand("composer require laravel/nova:${version}");
+            $this->info("✅ Laravel Nova installed.");
+        } else {
+            $this->line("Laravel Nova is already installed.");
+        }
+
+        // Try publishing Nova assets (non-fatal if none)
+        try {
+            $this->call('vendor:publish', [
+                '--provider' => 'Laravel\\Nova\\NovaServiceProvider',
+                '--tag' => 'nova-assets',
+                '--force' => true,
+            ]);
+        } catch (\Throwable $e) {
+            // ignore
+        }
 
         $this->publishMigrationsWithFallback(
             provider: 'Laravel\\Nova\\NovaServiceProvider',
@@ -162,6 +187,46 @@ class InstallCommand extends Command
         } catch (\Exception $e) {
             $this->warn("⚠️ Seeding may have failed: " . $e->getMessage());
             // Continue execution, don't fail completely
+        }
+    }
+
+    protected function runComposerCommand(string $command): void
+    {
+        $this->info("Executing: {$command}");
+        $process = proc_open($command, [
+            0 => ['pipe', 'r'],
+            1 => ['pipe', 'w'],
+            2 => ['pipe', 'w'],
+        ], $pipes, base_path());
+
+        if (!is_resource($process)) {
+            throw new \RuntimeException("Failed to execute command: {$command}");
+        }
+
+        fclose($pipes[0]);
+        $output = stream_get_contents($pipes[1]);
+        $error = stream_get_contents($pipes[2]);
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+
+        $exitCode = proc_close($process);
+        if ($exitCode !== 0) {
+            throw new \RuntimeException("Command failed: {$command}\nOutput: {$output}\nError: {$error}");
+        }
+        if (!empty($output)) {
+            $this->line($output);
+        }
+    }
+
+    protected function ensureNovaComposerAuth(): void
+    {
+        $email = (string) ($this->option('nova-email') ?: env('NOVA_USERNAME'));
+        $key = (string) ($this->option('nova-key') ?: env('NOVA_LICENSE_KEY'));
+
+        if ($email && $key) {
+            $this->runComposerCommand("composer config http-basic.nova.laravel.com {$email} {$key}");
+        } else {
+            $this->warn('Nova credentials not provided. Set --nova-email and --nova-key options or NOVA_USERNAME and NOVA_LICENSE_KEY env vars.');
         }
     }
 
