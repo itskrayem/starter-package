@@ -28,8 +28,7 @@
   ],
   "scripts": {
     "post-autoload-dump": [
-      "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
-      "@php artisan starter:install-core --ansi"
+      "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump"
     ]
   },
   "minimum-stability": "dev",
