@@ -4,6 +4,7 @@ namespace ItsKrayem\StarterPackage\Console;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Str;
 
 class InstallCommand extends Command
 {
@@ -33,13 +34,13 @@ class InstallCommand extends Command
     protected function cleanupDuplicateNovaMigrations(): void
     {
         // Remove any existing Nova migrations that might cause conflicts
-        $existingNovaMigrations = glob(database_path('migrations/*nova*.php'));
+        $existingNovaMigrations = File::glob(database_path('migrations/*nova*.php'));
         
         if (!empty($existingNovaMigrations)) {
             $this->warn("Found existing Nova migrations, cleaning up duplicates...");
             
             foreach ($existingNovaMigrations as $migration) {
-                unlink($migration);
+                File::delete($migration);
                 $this->line("Removed: " . basename($migration));
             }
             
@@ -93,37 +94,32 @@ class InstallCommand extends Command
             return;
         }
 
-        $novaMigrations = glob($novaMigrationsPath . '*.php');
-        $timestamp = now();
+        $novaMigrations = File::files($novaMigrationsPath);
+        $baseTimestamp = now();
+        $counter = 0;
 
-        // Get all existing migration files
-        $allMigrationFiles = glob(database_path('migrations/*.php'));
-        $existingClassNames = [];
-        foreach ($allMigrationFiles as $migrationFile) {
-            $migrationContent = file_get_contents($migrationFile);
-            if (preg_match('/class\s+(\w+)\s+extends\s+Migration/', $migrationContent, $matches)) {
-                $existingClassNames[] = $matches[1];
-            }
-        }
+        // Get all existing migration class names to avoid conflicts
+        $existingClassNames = $this->getExistingMigrationClassNames();
 
         foreach ($novaMigrations as $file) {
-            $filename = basename($file);
+            $filename = $file->getFilename();
+            
+            // Skip if not a PHP file
+            if (!Str::endsWith($filename, '.php')) {
+                continue;
+            }
+
+            // Generate unique timestamp for each migration
+            $timestamp = $baseTimestamp->copy()->addSeconds($counter);
             $newFilename = $timestamp->format('Y_m_d_His') . '_nova_' . $filename;
             $destination = database_path('migrations/' . $newFilename);
 
             // Read the original file content
-            $content = file_get_contents($file);
+            $content = File::get($file->getPathname());
 
-            // Generate a unique class name by prefixing with Nova and timestamp
+            // Generate a unique class name
             $originalClassName = $this->extractClassName($content);
-            $newClassName = 'Nova' . $timestamp->format('YmdHis') . $originalClassName;
-
-            // Check if this class name already exists in any migration file
-            if (in_array($newClassName, $existingClassNames)) {
-                $this->line("Migration with class {$newClassName} already exists, skipping: {$filename}");
-                $timestamp->addSecond();
-                continue;
-            }
+            $newClassName = $this->generateUniqueClassName($originalClassName, $timestamp, $existingClassNames);
 
             // Replace the class name in the content
             $content = str_replace(
@@ -133,14 +129,45 @@ class InstallCommand extends Command
             );
 
             // Write the modified content to the new file
-            file_put_contents($destination, $content);
+            File::put($destination, $content);
             $this->line("Copied and renamed: {$filename} -> {$newFilename}");
 
+            // Add to existing class names to prevent future conflicts
             $existingClassNames[] = $newClassName;
-            $timestamp->addSecond(); // Ensure unique timestamps
+            $counter++;
         }
 
         $this->info("✅ Nova migrations copied with unique class names.");
+    }
+
+    protected function getExistingMigrationClassNames(): array
+    {
+        $allMigrationFiles = File::glob(database_path('migrations/*.php'));
+        $existingClassNames = [];
+
+        foreach ($allMigrationFiles as $migrationFile) {
+            $migrationContent = File::get($migrationFile);
+            if (preg_match('/class\s+(\w+)\s+extends\s+Migration/', $migrationContent, $matches)) {
+                $existingClassNames[] = $matches[1];
+            }
+        }
+
+        return $existingClassNames;
+    }
+
+    protected function generateUniqueClassName(string $originalClassName, $timestamp, array $existingClassNames): string
+    {
+        $baseClassName = 'Nova' . $timestamp->format('YmdHis') . $originalClassName;
+        $className = $baseClassName;
+        $suffix = 1;
+
+        // Ensure uniqueness by adding a suffix if needed
+        while (in_array($className, $existingClassNames)) {
+            $className = $baseClassName . $suffix;
+            $suffix++;
+        }
+
+        return $className;
     }
 
     protected function extractClassName(string $content): string
@@ -150,16 +177,18 @@ class InstallCommand extends Command
         }
         
         // Fallback: generate a generic class name
-        return 'NovaMigration';
+        return 'NovaMigration' . Str::random(4);
     }
 
     protected function executeCommand(string $command): void
     {
+        $this->info("Executing: {$command}");
+        
         $process = proc_open($command, [
             0 => ['pipe', 'r'],
             1 => ['pipe', 'w'],
             2 => ['pipe', 'w']
-        ], $pipes);
+        ], $pipes, base_path());
 
         if (!is_resource($process)) {
             throw new \Exception("Failed to execute command: {$command}");
@@ -174,34 +203,48 @@ class InstallCommand extends Command
         $exitCode = proc_close($process);
 
         if ($exitCode !== 0) {
-            throw new \Exception("Command failed: {$command}. Error: {$error}");
+            throw new \Exception("Command failed: {$command}\nOutput: {$output}\nError: {$error}");
+        }
+
+        if (!empty($output)) {
+            $this->line($output);
         }
     }
 
     protected function publishAssets(string $provider, string $tag): void
     {
-        $this->callSilent('vendor:publish', [
+        $result = $this->callSilent('vendor:publish', [
             '--provider' => $provider,
             '--tag' => $tag,
             '--force' => true
         ]);
-        $this->info("✅ {$tag} published.");
+
+        if ($result === 0) {
+            $this->info("✅ {$tag} published.");
+        } else {
+            $this->warn("⚠️ Failed to publish {$tag}");
+        }
     }
 
     protected function runMigrations(): void
     {
-        $this->callSilent('migrate', ['--force' => true]);
-        $this->info("✅ Migrations applied.");
+        $this->info("Running migrations...");
+        $result = $this->callSilent('migrate', ['--force' => true]);
+        
+        if ($result === 0) {
+            $this->info("✅ Migrations applied successfully.");
+        } else {
+            $this->warn("⚠️ Some migrations may have failed. Check your database.");
+        }
     }
-
 
     protected function installMediaLibrary(): void
     {
         $this->info("Setting up Spatie MediaLibrary...");
 
-        $mediaMigration = database_path('migrations/*_create_media_table.php');
+        $mediaMigration = File::glob(database_path('migrations/*_create_media_table.php'));
         
-        if (empty(File::glob($mediaMigration))) {
+        if (empty($mediaMigration)) {
             $this->publishAssets(
                 'Spatie\MediaLibrary\MediaLibraryServiceProvider',
                 'laravel-medialibrary-migrations'
@@ -219,9 +262,9 @@ class InstallCommand extends Command
     {
         $this->info("Setting up Spatie Permission...");
 
-        $permissionMigration = database_path('migrations/*_create_permission_tables.php');
+        $permissionMigration = File::glob(database_path('migrations/*_create_permission_tables.php'));
         
-        if (empty(File::glob($permissionMigration))) {
+        if (empty($permissionMigration)) {
             $this->publishAssets(
                 'Spatie\Permission\PermissionServiceProvider',
                 'laravel-permission-migrations'
@@ -248,7 +291,7 @@ class InstallCommand extends Command
         $content = File::get($userModelPath);
 
         // Skip if already patched
-        if (str_contains($content, 'HasRoles')) {
+        if (Str::contains($content, 'HasRoles')) {
             $this->line("User model already has HasRoles trait.");
             return;
         }
@@ -268,12 +311,14 @@ class InstallCommand extends Command
         // Find the namespace line and add use statement after existing use statements
         $pattern = '/(\nnamespace\s+App\\\Models;\s*\n(?:use[^\n]+\n)*)/';
         
-        return preg_replace(
+        $replacement = preg_replace(
             $pattern,
             "$1use {$useStatement};\n",
             $content,
             1
-        ) ?? $content;
+        );
+
+        return $replacement ?? $content;
     }
 
     protected function addTraitToClass(string $content, string $traitName): string
@@ -281,11 +326,13 @@ class InstallCommand extends Command
         // Add trait inside the class after the opening brace
         $pattern = '/(class\s+User\s+extends\s+[^{]+\{)/';
         
-        return preg_replace(
+        $replacement = preg_replace(
             $pattern,
             "$1\n    use {$traitName};\n",
             $content,
             1
-        ) ?? $content;
+        );
+
+        return $replacement ?? $content;
     }
 }
