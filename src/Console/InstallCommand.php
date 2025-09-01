@@ -4,29 +4,29 @@ namespace ItsKrayem\StarterPackage\Console;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Str;
+use Symfony\Component\Process\Exception\ProcessFailedException;
+use Symfony\Component\Process\Process;
 
 class InstallCommand extends Command
 {
-    protected $signature = 'starter:install-core {features?*} {--nova-email=} {--nova-key=} {--nova-version=^5.0}';
+    protected $signature = 'starter:install {features?*}';
     protected $description = 'Install starter package: Nova, MediaLibrary, and optional features';
 
     public function handle(): int
     {
-        $this->info("🚀 Installing Starter Package Core...");
+        $this->info("🚀 Installing Starter Package...");
 
         try {
             $this->installNova();
             $this->installMediaLibrary();
             $this->installOptionalFeatures();
 
-            // Run all migrations once at the end
-            $this->runMigrations();
-
-            // Seed after migrations
-            $this->runSeeding();
-
             $this->info("🎉 Starter Package installation complete!");
+            $this->newLine();
+            $this->info("Next steps:");
+            $this->line("1. Run: php artisan migrate");
+            $this->line("2. Run: php artisan nova:user (to create your first Nova user)");
+            
             return Command::SUCCESS;
         } catch (\Exception $e) {
             $this->error("❌ Installation failed: {$e->getMessage()}");
@@ -48,186 +48,83 @@ class InstallCommand extends Command
 
     protected function installNova(): void
     {
-        $this->info("Setting up Laravel Nova...");
+        $this->info("Installing Laravel Nova...");
 
-        // Configure Nova repository
-        $this->runComposerCommand('composer config repositories.nova composer https://nova.laravel.com');
-
-        // Install Nova if not present
-        if (!class_exists(\Laravel\Nova\Nova::class)) {
-            $this->info("Installing Laravel Nova via Composer...");
-            $this->ensureNovaComposerAuth();
-            $version = (string) ($this->option('nova-version') ?: '^5.0');
-            $this->runComposerCommand("composer require laravel/nova:${version}");
-            $this->info("✅ Laravel Nova installed.");
-        } else {
+        // Check if Nova is already installed
+        if (class_exists(\Laravel\Nova\Nova::class)) {
             $this->line("Laravel Nova is already installed.");
-        }
-
-        // Try publishing Nova assets (non-fatal if none)
-        try {
-            $this->call('vendor:publish', [
-                '--provider' => 'Laravel\\Nova\\NovaServiceProvider',
-                '--tag' => 'nova-assets',
-                '--force' => true,
-            ]);
-        } catch (\Throwable $e) {
-            // ignore
-        }
-
-        $this->publishMigrationsWithFallback(
-            provider: 'Laravel\\Nova\\NovaServiceProvider',
-            tag: 'nova-migrations',
-            vendorPath: base_path('vendor/laravel/nova/database/migrations'),
-            expectedPatterns: [
-                database_path('migrations/*nova*.php'),
-                database_path('migrations/*action_events*.php'),
-                database_path('migrations/*nova_notifications*.php'),
-                database_path('migrations/*field_attachments*.php'),
-            ],
-            packageName: 'Nova'
-        );
-    }
-
-    // Generic publish with fallback to copying migrations from vendor
-    protected function publishMigrationsWithFallback(
-        string $provider,
-        string $tag,
-        string $vendorPath,
-        array $expectedPatterns,
-        string $packageName
-    ): void {
-        if ($this->migrationsExist($expectedPatterns)) {
-            $this->line("{$packageName} migrations already present. Skipping publish.");
             return;
         }
 
-        $this->call('vendor:publish', [
-            '--provider' => $provider,
-            '--tag' => $tag,
-            '--force' => true,
+        // Add Nova repository configuration
+        $this->runComposerCommand([
+            'config', 
+            'repositories.nova', 
+            'composer', 
+            'https://nova.laravel.com'
         ]);
 
-        if ($this->migrationsExist($expectedPatterns)) {
-            $this->info("✅ {$packageName} migrations published.");
-            return;
-        }
+        // Install Nova
+        $this->info("Installing Laravel Nova via Composer...");
+        $this->runComposerCommand(['require', 'laravel/nova:^5.0']);
 
-        $this->info("No {$packageName} migrations published via tag. Falling back to manual copy...");
-        $this->copyGenericMigrationsSafely($vendorPath);
+        // Publish Nova assets and migrations
+        $this->call('vendor:publish', [
+            '--provider' => 'Laravel\Nova\NovaServiceProvider',
+            '--force' => true
+        ]);
 
-        if ($this->migrationsExist($expectedPatterns)) {
-            $this->info("✅ {$packageName} migrations copied from vendor.");
-        } else {
-            $this->warn("⚠️ {$packageName} migrations still not found. Please verify the installed package version.");
-        }
-    }
-
-    protected function migrationsExist(array $patterns): bool
-    {
-        foreach ($patterns as $pattern) {
-            $files = File::glob($pattern);
-            if (!empty($files)) {
-                return true;
-            }
-        }
-        return false;
+        $this->info("✅ Laravel Nova installed.");
     }
 
     protected function installMediaLibrary(): void
     {
         $this->info("Setting up Spatie MediaLibrary...");
 
-        $this->publishMigrationsWithFallback(
-            provider: 'Spatie\\MediaLibrary\\MediaLibraryServiceProvider',
-            tag: 'laravel-medialibrary-migrations',
-            vendorPath: base_path('vendor/spatie/laravel-medialibrary/database/migrations'),
-            expectedPatterns: [database_path('migrations/*_create_media_table.php')],
-            packageName: 'MediaLibrary'
-        );
+        // Check if MediaLibrary migrations already exist
+        $mediaMigration = database_path('migrations/*_create_media_table.php');
+        
+        if (empty(File::glob($mediaMigration))) {
+            $this->call('vendor:publish', [
+                '--provider' => 'Spatie\MediaLibrary\MediaLibraryServiceProvider',
+                '--tag' => 'laravel-medialibrary-migrations',
+                '--force' => true
+            ]);
+            $this->info("✅ MediaLibrary migrations published.");
+        } else {
+            $this->line("MediaLibrary migrations already exist.");
+        }
+
+        $this->info("✅ MediaLibrary setup complete.");
     }
 
     protected function installPermission(): void
     {
         $this->info("Setting up Spatie Permission...");
 
-        $this->publishMigrationsWithFallback(
-            provider: 'Spatie\\Permission\\PermissionServiceProvider',
-            tag: 'laravel-permission-migrations',
-            vendorPath: base_path('vendor/spatie/laravel-permission/database/migrations'),
-            expectedPatterns: [database_path('migrations/*_create_permission_tables.php')],
-            packageName: 'Permission'
-        );
+        // Install the package if not already installed
+        if (!class_exists(\Spatie\Permission\Models\Permission::class)) {
+            $this->runComposerCommand(['require', 'spatie/laravel-permission']);
+        }
+
+        // Publish migrations if they don't exist
+        $permissionMigration = database_path('migrations/*_create_permission_tables.php');
         
-        // Patch User model
+        if (empty(File::glob($permissionMigration))) {
+            $this->call('vendor:publish', [
+                '--provider' => 'Spatie\Permission\PermissionServiceProvider',
+                '--tag' => 'laravel-permission-migrations',
+                '--force' => true
+            ]);
+            $this->info("✅ Permission migrations published.");
+        } else {
+            $this->line("Permission migrations already exist.");
+        }
+
+        // Patch User model to include HasRoles trait
         $this->patchUserModelForHasRoles();
         
         $this->info("✅ Permission feature installed.");
-    }
-
-    protected function runMigrations(): void
-    {
-        $this->info("Running migrations...");
-        
-        try {
-            $this->call('migrate', ['--force' => true]);
-            $this->info("✅ Migrations applied successfully.");
-        } catch (\Exception $e) {
-            $this->warn("⚠️ Some migrations may have failed: " . $e->getMessage());
-            // Continue execution, don't fail completely
-        }
-    }
-
-    protected function runSeeding(): void
-    {
-        $this->info("Seeding database...");
-        try {
-            $this->call('db:seed', ['--force' => true]);
-            $this->info("✅ Seeding completed.");
-        } catch (\Exception $e) {
-            $this->warn("⚠️ Seeding may have failed: " . $e->getMessage());
-            // Continue execution, don't fail completely
-        }
-    }
-
-    protected function runComposerCommand(string $command): void
-    {
-        $this->info("Executing: {$command}");
-        $process = proc_open($command, [
-            0 => ['pipe', 'r'],
-            1 => ['pipe', 'w'],
-            2 => ['pipe', 'w'],
-        ], $pipes, base_path());
-
-        if (!is_resource($process)) {
-            throw new \RuntimeException("Failed to execute command: {$command}");
-        }
-
-        fclose($pipes[0]);
-        $output = stream_get_contents($pipes[1]);
-        $error = stream_get_contents($pipes[2]);
-        fclose($pipes[1]);
-        fclose($pipes[2]);
-
-        $exitCode = proc_close($process);
-        if ($exitCode !== 0) {
-            throw new \RuntimeException("Command failed: {$command}\nOutput: {$output}\nError: {$error}");
-        }
-        if (!empty($output)) {
-            $this->line($output);
-        }
-    }
-
-    protected function ensureNovaComposerAuth(): void
-    {
-        $email = (string) ($this->option('nova-email') ?: env('NOVA_USERNAME'));
-        $key = (string) ($this->option('nova-key') ?: env('NOVA_LICENSE_KEY'));
-
-        if ($email && $key) {
-            $this->runComposerCommand("composer config http-basic.nova.laravel.com {$email} {$key}");
-        } else {
-            $this->warn('Nova credentials not provided. Set --nova-email and --nova-key options or NOVA_USERNAME and NOVA_LICENSE_KEY env vars.');
-        }
     }
 
     protected function patchUserModelForHasRoles(): void
@@ -242,7 +139,7 @@ class InstallCommand extends Command
         $content = File::get($userModelPath);
 
         // Skip if already patched
-        if (Str::contains($content, 'HasRoles')) {
+        if (str_contains($content, 'HasRoles')) {
             $this->line("User model already has HasRoles trait.");
             return;
         }
@@ -259,107 +156,57 @@ class InstallCommand extends Command
 
     protected function addUseStatement(string $content, string $useStatement): string
     {
-        // Check if use statement already exists
-        if (Str::contains($content, "use {$useStatement};")) {
-            return $content;
-        }
-
-        // Find the last use statement and add after it
-        $lines = explode("\n", $content);
-        $insertIndex = -1;
-        
-        foreach ($lines as $index => $line) {
-            if (Str::startsWith(trim($line), 'use ') && Str::endsWith(trim($line), ';')) {
-                $insertIndex = $index;
+        // Find the namespace line and add use statement after existing use statements
+        if (preg_match('/^namespace\s+[^;]+;\s*$/m', $content, $matches, PREG_OFFSET_CAPTURE)) {
+            $namespaceEnd = $matches[0][1] + strlen($matches[0][0]);
+            
+            // Find where use statements end or class begins
+            $insertPosition = $namespaceEnd;
+            if (preg_match('/\nuse\s+[^;]+;\s*$/m', $content, $useMatches, PREG_OFFSET_CAPTURE, $namespaceEnd)) {
+                // Find the last use statement
+                if (preg_match_all('/\nuse\s+[^;]+;\s*$/m', $content, $allUseMatches, PREG_OFFSET_CAPTURE, $namespaceEnd)) {
+                    $lastUse = end($allUseMatches[0]);
+                    $insertPosition = $lastUse[1] + strlen($lastUse[0]);
+                }
             }
+            
+            $newContent = substr($content, 0, $insertPosition) . 
+                         "\nuse {$useStatement};" . 
+                         substr($content, $insertPosition);
+            
+            return $newContent;
         }
         
-        if ($insertIndex !== -1) {
-            array_splice($lines, $insertIndex + 1, 0, "use {$useStatement};");
-            return implode("\n", $lines);
-        }
-
-        // Fallback: add after namespace
-        $pattern = '/(\nnamespace\s+App\\\Models;\s*\n)/';
-        $replacement = preg_replace(
-            $pattern,
-            "$1use {$useStatement};\n",
-            $content,
-            1
-        );
-
-        return $replacement ?? $content;
+        return $content;
     }
 
     protected function addTraitToClass(string $content, string $traitName): string
     {
-        // Check if trait is already used
-        if (Str::contains($content, "use {$traitName};")) {
-            return $content;
+        // Find the User class and add trait after opening brace
+        if (preg_match('/(class\s+User\s+extends\s+[^{]+\{)(\s*)/', $content, $matches, PREG_OFFSET_CAPTURE)) {
+            $classStart = $matches[1][1] + strlen($matches[1][0]);
+            $whitespace = $matches[2][0] ?? "\n";
+            
+            $newContent = substr($content, 0, $classStart) . 
+                         $whitespace . "    use {$traitName};" . 
+                         substr($content, $classStart);
+            
+            return $newContent;
         }
-
-        // Find the class declaration and add trait
-        $pattern = '/(class\s+User\s+extends\s+[^{]+\{\s*)/';
         
-        $replacement = preg_replace(
-            $pattern,
-            "$1\n    use {$traitName};\n",
-            $content,
-            1
-        );
-
-        return $replacement ?? $content;
+        return $content;
     }
 
-    /**
-     * Generic migration copier: copies .php files from a vendor migration folder
-     * into the app's database/migrations with unique timestamps. If the migration
-     * file already exists in destination (by suffix), it's skipped.
-     */
-    protected function copyGenericMigrationsSafely(string $sourceDir): void
+    protected function runComposerCommand(array $command): void
     {
-        if (!is_dir($sourceDir)) {
-            $this->warn("Source migrations directory not found: {$sourceDir}");
-            return;
-        }
-
-        $files = File::files($sourceDir);
-        if (empty($files)) {
-            $this->warn("No migration files found in: {$sourceDir}");
-            return;
-        }
-
-        $timestamp = now();
-        $copiedAny = false;
-
-        foreach ($files as $file) {
-            $name = $file->getFilename();
-            // Accept both .php and .php.stub
-            $isPhp = Str::endsWith($name, '.php');
-            $isStub = Str::endsWith($name, '.php.stub');
-            if (!$isPhp && !$isStub) {
-                continue;
-            }
-            // If a migration with this suffix already exists, skip
-            $baseSuffix = $isStub ? Str::replaceLast('.stub', '', $name) : $name;
-            $existing = File::glob(database_path('migrations/*_' . $baseSuffix));
-            if (!empty($existing)) {
-                continue;
-            }
-
-            $finalName = $baseSuffix; // ensure .php extension only
-            $newName = $timestamp->format('Y_m_d_His') . '_' . $finalName;
-            $destination = database_path('migrations/' . $newName);
-
-            // Copy and, if stub, strip .stub by writing to destination without .stub
-            File::copy($file->getPathname(), $destination);
-            $this->line("Published: {$name} -> {$newName}");
-            $timestamp->addSecond();
-            $copiedAny = true;
-        }
-
-        if ($copiedAny) {
-            $this->info("✅ Migrations copied successfully from {$sourceDir}.");
+        $process = new Process(array_merge(['composer'], $command));
+        $process->setTimeout(300); // 5 minutes timeout
+        
+        try {
+            $process->mustRun();
+            $this->line($process->getOutput());
+        } catch (ProcessFailedException $exception) {
+            throw new \Exception("Composer command failed: " . $exception->getMessage());
         }
     }
 }
