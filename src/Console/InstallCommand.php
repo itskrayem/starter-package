@@ -48,27 +48,30 @@ class InstallCommand extends Command
 
     protected function installNova(): void
     {
-        $this->info("Installing Laravel Nova...");
+        $this->info("Checking Laravel Nova...");
 
-        // Check if Nova is already installed
-        if (class_exists(\Laravel\Nova\Nova::class)) {
+        // Add Nova repository if not already configured
+        $this->executeCommand('composer config repositories.nova composer https://nova.laravel.com');
+
+        // Install Nova if not present
+        if (!class_exists(\Laravel\Nova\Nova::class)) {
+            $this->info("Installing Laravel Nova via Composer...");
+            $this->executeCommand('composer require laravel/nova:^5.0');
+            $this->info("✅ Laravel Nova installed.");
+        } else {
             $this->line("Laravel Nova is already installed.");
-            return;
         }
 
-        // Add Nova repository configuration
-        $this->runComposerCommand([
-            'config', 
-            'repositories.nova', 
-            'composer', 
-            'https://nova.laravel.com'
-        ]);
+        // Publish Nova assets
+        $this->publishAssets('Laravel\Nova\NovaServiceProvider', 'nova-assets');
 
-        // Install Nova
-        $this->info("Installing Laravel Nova via Composer...");
-        $this->runComposerCommand(['require', 'laravel/nova:^5.0']);
+        // Generate app/Nova folder and default User resource
+        $this->callSilent('nova:install');
 
-        // Publish Nova assets and migrations
+        // Copy and run Nova migrations
+        $this->copyNovaMigrations();
+        $this->runMigrations();
+        $this->info("✅ Nova setup complete.");
         $this->call('vendor:publish', [
             '--provider' => 'Laravel\Nova\NovaServiceProvider',
             '--force' => true
