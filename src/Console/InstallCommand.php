@@ -6,6 +6,8 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
 use Symfony\Component\Process\Exception\ProcessFailedException;
 use Symfony\Component\Process\Process;
+use Illuminate\Support\Facades\Artisan;
+
 
 class InstallCommand extends Command
 {
@@ -45,49 +47,99 @@ class InstallCommand extends Command
         }
     }
 
+    // protected function installNova(): void
+    // {
+    //     $this->info("Installing Laravel Nova...");
+
+    //     if (class_exists(\Laravel\Nova\Nova::class)) {
+    //         $this->line("Laravel Nova is already installed.");
+    //         return;
+    //     }
+
+    //     $this->runComposerCommand([
+    //         'config', 
+    //         'repositories.nova', 
+    //         'composer', 
+    //         'https://nova.laravel.com'
+    //     ]);
+
+    //     $this->info("Installing Laravel Nova via Composer...");
+    //     $this->runComposerCommand(['require', 'laravel/nova:^5.0']);
+
+    //     $this->call('vendor:publish', [
+    //         '--provider' => 'Laravel\Nova\NovaServiceProvider',
+    //         '--force' => true
+    //     ]);
+
+    //     // Generate default User resource
+    //     $this->info("Creating default Nova User resource...");
+    //     if (!File::exists(app_path('Nova/User.php'))) {
+    //             $this->callSilent('nova:resource', ['name' => 'User']);
+    //             $this->callSilent('nova:user');
+    //         $this->info("✅ User resource created at app/Nova/User.php");
+    //     } else {
+    //         $this->line("User resource already exists, skipping...");
+    //     }
+
+    //     // Prompt to create first Nova user
+    //     if ($this->confirm("Do you want to create your first Nova user now?", true)) {
+    //         $this->call('nova:user');
+    //     } else {
+    //         $this->line("➡️ You can create one later using: php artisan nova:user");
+    //     }
+
+    //     $this->info("✅ Laravel Nova installed.");
+    // }
+
+    
+  
+
     protected function installNova(): void
-    {
-        $this->info("Installing Laravel Nova...");
+{
+    $this->info("Installing Laravel Nova...");
 
-        if (class_exists(\Laravel\Nova\Nova::class)) {
-            $this->line("Laravel Nova is already installed.");
-            return;
-        }
-
-        $this->runComposerCommand([
-            'config', 
-            'repositories.nova', 
-            'composer', 
-            'https://nova.laravel.com'
-        ]);
-
-        $this->info("Installing Laravel Nova via Composer...");
-        $this->runComposerCommand(['require', 'laravel/nova:^5.0']);
-
-        $this->call('vendor:publish', [
-            '--provider' => 'Laravel\Nova\NovaServiceProvider',
-            '--force' => true
-        ]);
-
-        // Generate default User resource
-        $this->info("Creating default Nova User resource...");
-        if (!File::exists(app_path('Nova/User.php'))) {
-                $this->callSilent('nova:resource', ['name' => 'User']);
-                $this->callSilent('nova:user');
-            $this->info("✅ User resource created at app/Nova/User.php");
-        } else {
-            $this->line("User resource already exists, skipping...");
-        }
-
-        // Prompt to create first Nova user
-        if ($this->confirm("Do you want to create your first Nova user now?", true)) {
-            $this->call('nova:user');
-        } else {
-            $this->line("➡️ You can create one later using: php artisan nova:user");
-        }
-
-        $this->info("✅ Laravel Nova installed.");
+    if (class_exists(\Laravel\Nova\Nova::class)) {
+        $this->line("Laravel Nova is already installed.");
+        return;
     }
+
+    $this->runComposerCommand([
+        'config', 
+        'repositories.nova', 
+        'composer', 
+        'https://nova.laravel.com'
+    ]);
+
+    $this->info("Installing Laravel Nova via Composer...");
+    $this->runComposerCommand(['require', 'laravel/nova:^5.0']);
+
+    // Re-register commands so nova:* becomes available
+    Artisan::call('package:discover');
+    $this->line(Artisan::output());
+
+    $this->call('vendor:publish', [
+        '--provider' => 'Laravel\Nova\NovaServiceProvider',
+        '--force' => true
+    ]);
+
+    // Now these will work
+    $this->info("Creating default Nova User resource...");
+    if (!File::exists(app_path('Nova/User.php'))) {
+        $this->call('nova:resource', ['name' => 'User']);
+        $this->info("✅ User resource created at app/Nova/User.php");
+    } else {
+        $this->line("User resource already exists, skipping...");
+    }
+
+    if ($this->confirm("Do you want to create your first Nova user now?", true)) {
+        $this->call('nova:user');
+    } else {
+        $this->line("➡️ You can create one later using: php artisan nova:user");
+    }
+
+    $this->info("✅ Laravel Nova installed.");
+}
+
 
     protected function installMediaLibrary(): void
     {
