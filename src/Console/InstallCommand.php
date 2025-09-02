@@ -209,4 +209,35 @@ class InstallCommand extends Command
             throw new \Exception("Composer command failed: " . $exception->getMessage());
         }
     }
+
+    public function copyStubFiles()
+{
+    $files = [
+        [
+            'source' => __DIR__ . '/../stubs/models/Role.php',
+            'destination' => app_path('Models/Role.php'),
+        ],
+        [
+            'source' => __DIR__ . '/../stubs/models/Permission.php',
+            'destination' => app_path('Models/Permission.php'),
+        ],
+        [
+            'source' => __DIR__ . '/../stubs/nova/Role.php',
+            'destination' => app_path('Nova/Role.php'),
+        ],
+        [
+            'source' => __DIR__ . '/../stubs/nova/Permission.php',
+            'destination' => app_path('Nova/Permission.php'),
+        ],
+    ];
+
+    foreach ($files as $file) {
+        if (!File::exists($file['destination'])) {
+            File::copy($file['source'], $file['destination']);
+            $this->info("✅ {$file['destination']} added.");
+        } else {
+            $this->warn("{$file['destination']} already exists.");
+        }
+    }
+}
 }
