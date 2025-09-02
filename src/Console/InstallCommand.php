@@ -12,6 +12,21 @@ class InstallCommand extends Command
     protected $signature = 'starter:install {features?*}';
     protected $description = 'Install starter package: Nova, MediaLibrary, and optional features';
 
+    protected function executeCommand(string $command): void
+    {
+        $process = new Process(explode(' ', $command));
+        $process->setTimeout(300);
+        $process->run();
+
+        if (!$process->isSuccessful()) {
+            throw new ProcessFailedException($process);
+        }
+        $this->line($process->getOutput());
+    }
+{
+    protected $signature = 'starter:install {features?*}';
+    protected $description = 'Install starter package: Nova, MediaLibrary, and optional features';
+
     public function handle(): int
     {
         $this->info("🚀 Installing Starter Package...");
