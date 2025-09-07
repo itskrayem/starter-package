@@ -18,6 +18,9 @@
     "laravel": {
       "providers": [
         "ItsKrayem\\StarterPackage\\StarterPackageServiceProvider"
+      ],
+      "stubs": [
+        "stubs/"
       ]
     }
   },
