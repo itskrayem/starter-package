@@ -11,7 +11,7 @@ use Symfony\Component\Process\Process;
 class InstallCommand extends Command
 {
     protected $signature = 'starter:install {features?*}';
-    protected $description = 'Install starter package: Nova, MediaLibrary, Permission, and optional features';
+    protected $description = 'Install starter package: Nova, MediaLibrary, optional features, and stubs';
 
     public function handle(): int
     {
@@ -21,34 +21,11 @@ class InstallCommand extends Command
             $this->installNova();
             $this->installMediaLibrary();
             $this->installOptionalFeatures();
-
-            // Run migrations
-            $this->callSilent('migrate');
-            $this->info("✅ Database migrated.");
-
-            // Create Nova User resource if not exists
-            if (!File::exists(app_path('Nova/User.php'))) {
-                $this->callSilent('nova:resource', ['name' => 'User']);
-                $this->info("✅ Nova User resource created.");
-            } else {
-                $this->line("⚠️ User resource already exists, skipping...");
-            }
-
-            // Prompt to create Nova user interactively
-            if ($this->confirm("Do you want to create your first Nova user now?", true)) {
-                $this->call('nova:user');
-                $this->info("✅ Nova user created.");
-            } else {
-                $this->line("➡️ You can create one later using: php artisan nova:user");
-            }
-
-            // Publish stubs (Models + Nova)
             $this->publishStubs();
 
-            $this->info("🎉 Starter Package installation complete!");
-            $this->newLine();
-            $this->info("Next steps:");
-            $this->line("1. Start using Nova!");
+            // Run migrations
+            $this->call('migrate');
+            $this->info("✅ Database migrated.");
 
             return Command::SUCCESS;
         } catch (\Exception $e) {
@@ -74,28 +51,34 @@ class InstallCommand extends Command
         $this->info("Installing Laravel Nova...");
 
         if (class_exists(\Laravel\Nova\Nova::class)) {
-            $this->line("✅ Laravel Nova is already installed.");
-            return;
+            $this->line("Laravel Nova is already installed.");
+        } else {
+            $this->runComposerCommand([
+                'config',
+                'repositories.nova',
+                'composer',
+                'https://nova.laravel.com'
+            ]);
+            $this->runComposerCommand(['require', 'laravel/nova:^5.0']);
+            Artisan::call('vendor:publish', [
+                '--provider' => 'Laravel\Nova\NovaServiceProvider',
+                '--force' => true
+            ]);
         }
 
-        $this->runComposerCommand([
-            'config', 
-            'repositories.nova', 
-            'composer', 
-            'https://nova.laravel.com'
-        ]);
+        // Create Nova User resource
+        if (!File::exists(app_path('Nova/User.php'))) {
+            $this->call('nova:resource', ['name' => 'User']);
+        } else {
+            $this->line("User resource already exists, skipping...");
+        }
 
-        $this->info("Installing Laravel Nova via Composer...");
-        $this->runComposerCommand(['require', 'laravel/nova:^5.0']);
-
-        // Re-register commands so nova:* becomes available
-        Artisan::call('package:discover');
-        $this->line(Artisan::output());
-
-        $this->call('vendor:publish', [
-            '--provider' => 'Laravel\Nova\NovaServiceProvider',
-            '--force' => true
-        ]);
+        // Prompt to create first Nova user
+        if ($this->confirm("Do you want to create your first Nova user now?", true)) {
+            $this->call('nova:user');
+        } else {
+            $this->line("➡️ You can create one later using: php artisan nova:user");
+        }
 
         $this->info("✅ Laravel Nova installed.");
     }
@@ -104,9 +87,8 @@ class InstallCommand extends Command
     {
         $this->info("Setting up Spatie MediaLibrary...");
 
-        $mediaMigration = database_path('migrations/*_create_media_table.php');
-        
-        if (empty(File::glob($mediaMigration))) {
+        $migrationFiles = database_path('migrations/*_create_media_table.php');
+        if (empty(File::glob($migrationFiles))) {
             $this->call('vendor:publish', [
                 '--provider' => 'Spatie\MediaLibrary\MediaLibraryServiceProvider',
                 '--tag' => 'laravel-medialibrary-migrations',
@@ -114,7 +96,7 @@ class InstallCommand extends Command
             ]);
             $this->info("✅ MediaLibrary migrations published.");
         } else {
-            $this->line("⚠️ MediaLibrary migrations already exist.");
+            $this->line("MediaLibrary migrations already exist.");
         }
 
         $this->info("✅ MediaLibrary setup complete.");
@@ -128,9 +110,8 @@ class InstallCommand extends Command
             $this->runComposerCommand(['require', 'spatie/laravel-permission']);
         }
 
-        $permissionMigration = database_path('migrations/*_create_permission_tables.php');
-        
-        if (empty(File::glob($permissionMigration))) {
+        $migrationFiles = database_path('migrations/*_create_permission_tables.php');
+        if (empty(File::glob($migrationFiles))) {
             $this->call('vendor:publish', [
                 '--provider' => 'Spatie\Permission\PermissionServiceProvider',
                 '--tag' => 'laravel-permission-migrations',
@@ -138,7 +119,7 @@ class InstallCommand extends Command
             ]);
             $this->info("✅ Permission migrations published.");
         } else {
-            $this->line("⚠️ Permission migrations already exist.");
+            $this->line("Permission migrations already exist.");
         }
 
         $this->patchUserModelForHasRoles();
@@ -148,101 +129,53 @@ class InstallCommand extends Command
     protected function patchUserModelForHasRoles(): void
     {
         $userModelPath = app_path('Models/User.php');
-        
         if (!File::exists($userModelPath)) {
-            $this->warn("⚠️ User model not found at {$userModelPath}, skipping HasRoles patch.");
+            $this->warn("User model not found at {$userModelPath}, skipping HasRoles patch.");
             return;
         }
 
         $content = File::get($userModelPath);
 
-        if (str_contains($content, 'HasRoles')) {
-            $this->line("ℹ️ User model already has HasRoles trait.");
-            return;
+        if (!str_contains($content, 'HasRoles')) {
+            $content = preg_replace(
+                '/(namespace\s+[^;]+;)/',
+                "$1\nuse Spatie\\Permission\\Traits\\HasRoles;",
+                $content,
+                1
+            );
+
+            $content = preg_replace(
+                '/(class\s+User\s+extends\s+[^{]+\{)/',
+                "$1\n    use HasRoles;",
+                $content,
+                1
+            );
+
+            File::put($userModelPath, $content);
+            $this->info("✅ User model patched with HasRoles trait.");
+        } else {
+            $this->line("User model already has HasRoles trait.");
         }
-
-        $content = $this->addUseStatement($content, 'Spatie\\Permission\\Traits\\HasRoles');
-        $content = $this->addTraitToClass($content, 'HasRoles');
-
-        File::put($userModelPath, $content);
-        $this->info("✅ User model patched with HasRoles trait.");
-    }
-
-    protected function addUseStatement(string $content, string $useStatement): string
-    {
-        if (preg_match('/^namespace\s+[^;]+;\s*$/m', $content, $matches, PREG_OFFSET_CAPTURE)) {
-            $namespaceEnd = $matches[0][1] + strlen($matches[0][0]);
-            $insertPosition = $namespaceEnd;
-
-            if (preg_match_all('/\nuse\s+[^;]+;\s*$/m', $content, $allUseMatches, PREG_OFFSET_CAPTURE, $namespaceEnd)) {
-                $lastUse = end($allUseMatches[0]);
-                $insertPosition = $lastUse[1] + strlen($lastUse[0]);
-            }
-            
-            return substr($content, 0, $insertPosition) . 
-                   "\nuse {$useStatement};" . 
-                   substr($content, $insertPosition);
-        }
-        
-        return $content;
-    }
-
-    protected function addTraitToClass(string $content, string $traitName): string
-    {
-        if (preg_match('/(class\s+User\s+extends\s+[^{]+\{)(\s*)/', $content, $matches, PREG_OFFSET_CAPTURE)) {
-            $classStart = $matches[1][1] + strlen($matches[1][0]);
-            $whitespace = $matches[2][0] ?? "\n";
-            
-            return substr($content, 0, $classStart) . 
-                   $whitespace . "    use {$traitName};" . 
-                   substr($content, $classStart);
-        }
-        
-        return $content;
     }
 
     protected function publishStubs(): void
     {
-        $this->info("📦 Publishing stubs...");
-
-        $stubsPath = __DIR__ . '/../../stubs';
-
-        // Models stubs
-        $modelsPath = $stubsPath . '/models';
-        if (File::exists($modelsPath)) {
-            foreach (File::files($modelsPath) as $file) {
-                $destination = app_path('Models/' . $file->getFilename());
-                if (!File::exists($destination)) {
-                    File::copy($file->getPathname(), $destination);
-                    $this->info("✅ Model stub published: " . $file->getFilename());
-                } else {
-                    $this->line("⚠️ Model already exists, skipping: " . $file->getFilename());
-                }
-            }
+        $stubsPath = realpath(__DIR__ . '/../../stubs');
+        if ($stubsPath && is_dir($stubsPath)) {
+            $this->info("📦 Publishing stubs...");
+            $this->callSilent('vendor:publish', [
+                '--tag' => 'starter-package-stubs',
+                '--force' => true
+            ]);
+            $this->info("📦 Stubs publishing complete.");
         }
-
-        // Nova stubs
-        $novaPath = $stubsPath . '/nova';
-        if (File::exists($novaPath)) {
-            foreach (File::files($novaPath) as $file) {
-                $destination = app_path('Nova/' . $file->getFilename());
-                if (!File::exists($destination)) {
-                    File::copy($file->getPathname(), $destination);
-                    $this->info("✅ Nova stub published: " . $file->getFilename());
-                } else {
-                    $this->line("⚠️ Nova resource already exists, skipping: " . $file->getFilename());
-                }
-            }
-        }
-
-        $this->info("📦 Stubs publishing complete.");
     }
 
     protected function runComposerCommand(array $command): void
     {
         $process = new Process(array_merge(['composer'], $command));
-        $process->setTimeout(300); 
-        
+        $process->setTimeout(300);
+
         try {
             $process->mustRun();
             $this->line($process->getOutput());
