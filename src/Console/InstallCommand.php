@@ -20,7 +20,6 @@ class InstallCommand extends Command
             $this->installNova();
             $this->installMediaLibrary();
             $this->installOptionalFeatures();
-            $this->publishStubs();
             $this->runMigrations();
 
             $this->info("🎉 Starter Package installation complete!");
@@ -45,7 +44,6 @@ class InstallCommand extends Command
             return;
         }
 
-        // Configure Nova repo
         $this->runComposerCommand([
             'config',
             'repositories.nova',
@@ -56,13 +54,12 @@ class InstallCommand extends Command
         $this->info("Installing Laravel Nova via Composer...");
         $this->runComposerCommand(['require', 'laravel/nova:^5.0']);
 
-        // Publish Nova assets
         $this->call('vendor:publish', [
             '--provider' => 'Laravel\Nova\NovaServiceProvider',
             '--force' => true,
         ]);
 
-        $this->info("✅ Laravel Nova installed. Please run the Nova commands in a separate Artisan call.");
+        $this->info("✅ Laravel Nova installed. Please run the Nova commands separately.");
     }
 
     protected function installMediaLibrary(): void
@@ -93,7 +90,29 @@ class InstallCommand extends Command
         }
     }
 
-    protected function publishStubs(): void
+    protected function installPermission(): void
+    {
+        $this->info("Installing Spatie Permission...");
+        if (!class_exists(\Spatie\Permission\Models\Permission::class)) {
+            $this->runComposerCommand(['require', 'spatie/laravel-permission']);
+        }
+
+        $migrationFiles = database_path('migrations/*_create_permission_tables.php');
+        if (empty(File::glob($migrationFiles))) {
+            $this->call('vendor:publish', [
+                '--provider' => 'Spatie\Permission\PermissionServiceProvider',
+                '--tag' => 'laravel-permission-migrations',
+                '--force' => true,
+            ]);
+        }
+
+        // Copy permission-related stubs into app folder
+        $this->publishPermissionStubs();
+
+        $this->info("✅ Spatie Permission installed.");
+    }
+
+    protected function publishPermissionStubs(): void
     {
         $stubFolders = ['models', 'nova'];
         foreach ($stubFolders as $folder) {
@@ -102,7 +121,7 @@ class InstallCommand extends Command
             if (File::exists($source)) {
                 File::ensureDirectoryExists($destination);
                 File::copyDirectory($source, $destination);
-                $this->info("✅ Published stubs: {$folder}");
+                $this->info("✅ Published permission stubs: {$folder}");
             } else {
                 $this->warn("⚠️ Stub folder not found: {$source}");
             }
@@ -126,24 +145,5 @@ class InstallCommand extends Command
         } catch (ProcessFailedException $exception) {
             throw new \Exception("Composer command failed: " . $exception->getMessage());
         }
-    }
-
-    protected function installPermission(): void
-    {
-        $this->info("Installing Spatie Permission...");
-        if (!class_exists(\Spatie\Permission\Models\Permission::class)) {
-            $this->runComposerCommand(['require', 'spatie/laravel-permission']);
-        }
-
-        $migrationFiles = database_path('migrations/*_create_permission_tables.php');
-        if (empty(File::glob($migrationFiles))) {
-            $this->call('vendor:publish', [
-                '--provider' => 'Spatie\Permission\PermissionServiceProvider',
-                '--tag' => 'laravel-permission-migrations',
-                '--force' => true,
-            ]);
-        }
-
-        $this->info("✅ Spatie Permission installed.");
     }
 }
