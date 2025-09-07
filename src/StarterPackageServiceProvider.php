@@ -21,7 +21,7 @@ class StarterPackageServiceProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
 
             // Publish stubs to the app folders
-            $stubsPath = realpath(__DIR__ . '/../../stubs');
+            $stubsPath = realpath(__DIR__ . '/../stubs');
             if ($stubsPath && is_dir($stubsPath)) {
                 $this->publishes([
                     $stubsPath . '/models' => app_path('Models'),

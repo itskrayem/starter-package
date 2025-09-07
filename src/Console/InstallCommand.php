@@ -116,7 +116,7 @@ class InstallCommand extends Command
     {
         $stubFolders = ['models', 'nova'];
         foreach ($stubFolders as $folder) {
-            $source = __DIR__ . '/../../stubs/' . $folder;
+            $source = __DIR__ . '/../stubs/' . $folder;
             $destination = app_path($folder);
             if (File::exists($source)) {
                 File::ensureDirectoryExists($destination);
