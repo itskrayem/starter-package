@@ -4,14 +4,13 @@ namespace ItsKrayem\StarterPackage\Console;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Artisan;
 use Symfony\Component\Process\Exception\ProcessFailedException;
 use Symfony\Component\Process\Process;
 
 class InstallCommand extends Command
 {
     protected $signature = 'starter:install {features?*}';
-    protected $description = 'Install starter package: Nova, MediaLibrary, optional features, and stubs';
+    protected $description = 'Install starter package: Nova, MediaLibrary, and optional features';
 
     public function handle(): int
     {
@@ -22,27 +21,18 @@ class InstallCommand extends Command
             $this->installMediaLibrary();
             $this->installOptionalFeatures();
             $this->publishStubs();
+            $this->runMigrations();
 
-            // Run migrations
-            $this->call('migrate');
-            $this->info("✅ Database migrated.");
+            $this->info("🎉 Starter Package installation complete!");
+            $this->newLine();
+            $this->info("Next steps:");
+            $this->line("1. Generate Nova User resource: php artisan nova:resource User");
+            $this->line("2. Create your first Nova user: php artisan nova:user");
 
             return Command::SUCCESS;
         } catch (\Exception $e) {
             $this->error("❌ Installation failed: {$e->getMessage()}");
             return Command::FAILURE;
-        }
-    }
-
-    protected function installOptionalFeatures(): void
-    {
-        $features = $this->argument('features') ?? [];
-        
-        foreach ($features as $feature) {
-            match ($feature) {
-                'permission' => $this->installPermission(),
-                default => $this->warn("Unknown feature: {$feature}")
-            };
         }
     }
 
@@ -52,35 +42,27 @@ class InstallCommand extends Command
 
         if (class_exists(\Laravel\Nova\Nova::class)) {
             $this->line("Laravel Nova is already installed.");
-        } else {
-            $this->runComposerCommand([
-                'config',
-                'repositories.nova',
-                'composer',
-                'https://nova.laravel.com'
-            ]);
-            $this->runComposerCommand(['require', 'laravel/nova:^5.0']);
-            Artisan::call('vendor:publish', [
-                '--provider' => 'Laravel\Nova\NovaServiceProvider',
-                '--force' => true
-            ]);
+            return;
         }
 
-        // Create Nova User resource
-        if (!File::exists(app_path('Nova/User.php'))) {
-            $this->call('nova:resource', ['name' => 'User']);
-        } else {
-            $this->line("User resource already exists, skipping...");
-        }
+        // Configure Nova repo
+        $this->runComposerCommand([
+            'config',
+            'repositories.nova',
+            'composer',
+            'https://nova.laravel.com'
+        ]);
 
-        // Prompt to create first Nova user
-        if ($this->confirm("Do you want to create your first Nova user now?", true)) {
-            $this->call('nova:user');
-        } else {
-            $this->line("➡️ You can create one later using: php artisan nova:user");
-        }
+        $this->info("Installing Laravel Nova via Composer...");
+        $this->runComposerCommand(['require', 'laravel/nova:^5.0']);
 
-        $this->info("✅ Laravel Nova installed.");
+        // Publish Nova assets
+        $this->call('vendor:publish', [
+            '--provider' => 'Laravel\Nova\NovaServiceProvider',
+            '--force' => true,
+        ]);
+
+        $this->info("✅ Laravel Nova installed. Please run the Nova commands in a separate Artisan call.");
     }
 
     protected function installMediaLibrary(): void
@@ -92,83 +74,45 @@ class InstallCommand extends Command
             $this->call('vendor:publish', [
                 '--provider' => 'Spatie\MediaLibrary\MediaLibraryServiceProvider',
                 '--tag' => 'laravel-medialibrary-migrations',
-                '--force' => true
+                '--force' => true,
             ]);
-            $this->info("✅ MediaLibrary migrations published.");
-        } else {
-            $this->line("MediaLibrary migrations already exist.");
         }
 
         $this->info("✅ MediaLibrary setup complete.");
     }
 
-    protected function installPermission(): void
+    protected function installOptionalFeatures(): void
     {
-        $this->info("Setting up Spatie Permission...");
-
-        if (!class_exists(\Spatie\Permission\Models\Permission::class)) {
-            $this->runComposerCommand(['require', 'spatie/laravel-permission']);
-        }
-
-        $migrationFiles = database_path('migrations/*_create_permission_tables.php');
-        if (empty(File::glob($migrationFiles))) {
-            $this->call('vendor:publish', [
-                '--provider' => 'Spatie\Permission\PermissionServiceProvider',
-                '--tag' => 'laravel-permission-migrations',
-                '--force' => true
-            ]);
-            $this->info("✅ Permission migrations published.");
-        } else {
-            $this->line("Permission migrations already exist.");
-        }
-
-        $this->patchUserModelForHasRoles();
-        $this->info("✅ Permission feature installed.");
-    }
-
-    protected function patchUserModelForHasRoles(): void
-    {
-        $userModelPath = app_path('Models/User.php');
-        if (!File::exists($userModelPath)) {
-            $this->warn("User model not found at {$userModelPath}, skipping HasRoles patch.");
-            return;
-        }
-
-        $content = File::get($userModelPath);
-
-        if (!str_contains($content, 'HasRoles')) {
-            $content = preg_replace(
-                '/(namespace\s+[^;]+;)/',
-                "$1\nuse Spatie\\Permission\\Traits\\HasRoles;",
-                $content,
-                1
-            );
-
-            $content = preg_replace(
-                '/(class\s+User\s+extends\s+[^{]+\{)/',
-                "$1\n    use HasRoles;",
-                $content,
-                1
-            );
-
-            File::put($userModelPath, $content);
-            $this->info("✅ User model patched with HasRoles trait.");
-        } else {
-            $this->line("User model already has HasRoles trait.");
+        $features = $this->argument('features') ?? [];
+        foreach ($features as $feature) {
+            if ($feature === 'permission') {
+                $this->installPermission();
+            } else {
+                $this->warn("Unknown feature: {$feature}");
+            }
         }
     }
 
     protected function publishStubs(): void
     {
-        $stubsPath = realpath(__DIR__ . '/../../stubs');
-        if ($stubsPath && is_dir($stubsPath)) {
-            $this->info("📦 Publishing stubs...");
-            $this->callSilent('vendor:publish', [
-                '--tag' => 'starter-package-stubs',
-                '--force' => true
-            ]);
-            $this->info("📦 Stubs publishing complete.");
+        $stubFolders = ['models', 'nova'];
+        foreach ($stubFolders as $folder) {
+            $source = __DIR__ . '/../../stubs/' . $folder;
+            $destination = app_path($folder);
+            if (File::exists($source)) {
+                File::ensureDirectoryExists($destination);
+                File::copyDirectory($source, $destination);
+                $this->info("✅ Published stubs: {$folder}");
+            } else {
+                $this->warn("⚠️ Stub folder not found: {$source}");
+            }
         }
+    }
+
+    protected function runMigrations(): void
+    {
+        $this->call('migrate', ['--force' => true]);
+        $this->info("✅ Database migrated.");
     }
 
     protected function runComposerCommand(array $command): void
@@ -182,5 +126,24 @@ class InstallCommand extends Command
         } catch (ProcessFailedException $exception) {
             throw new \Exception("Composer command failed: " . $exception->getMessage());
         }
+    }
+
+    protected function installPermission(): void
+    {
+        $this->info("Installing Spatie Permission...");
+        if (!class_exists(\Spatie\Permission\Models\Permission::class)) {
+            $this->runComposerCommand(['require', 'spatie/laravel-permission']);
+        }
+
+        $migrationFiles = database_path('migrations/*_create_permission_tables.php');
+        if (empty(File::glob($migrationFiles))) {
+            $this->call('vendor:publish', [
+                '--provider' => 'Spatie\Permission\PermissionServiceProvider',
+                '--tag' => 'laravel-permission-migrations',
+                '--force' => true,
+            ]);
+        }
+
+        $this->info("✅ Spatie Permission installed.");
     }
 }
