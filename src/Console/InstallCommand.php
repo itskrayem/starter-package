@@ -62,21 +62,26 @@ class InstallCommand extends Command
         $this->info("✅ Laravel Nova installed. Please run the Nova commands separately.");
     }
 
-    protected function installMediaLibrary(): void
-    {
-        $this->info("Setting up Spatie MediaLibrary...");
+ protected function installMediaLibrary(): void
+{
+    $this->info("Setting up Spatie MediaLibrary...");
 
-        $migrationFiles = database_path('migrations/*_create_media_table.php');
-        if (empty(File::glob($migrationFiles))) {
-            $this->call('vendor:publish', [
-                '--provider' => 'Spatie\MediaLibrary\MediaLibraryServiceProvider',
-                '--tag' => 'laravel-medialibrary-migrations',
-                '--force' => true,
-            ]);
-        }
-
-        $this->info("✅ MediaLibrary setup complete.");
+    // Ensure the package is installed
+    if (!class_exists(\Spatie\MediaLibrary\MediaCollections\Models\Media::class)) {
+        $this->runComposerCommand(['require', 'spatie/laravel-medialibrary']);
     }
+
+    $migrationFiles = database_path('migrations/*_create_media_table.php');
+    if (empty(File::glob($migrationFiles))) {
+        $this->call('vendor:publish', [
+            '--provider' => 'Spatie\MediaLibrary\MediaLibraryServiceProvider',
+            '--tag' => 'laravel-medialibrary-migrations',
+            '--force' => true,
+        ]);
+    }
+
+    $this->info("✅ MediaLibrary setup complete.");
+}
 
     protected function installOptionalFeatures(): void
     {
