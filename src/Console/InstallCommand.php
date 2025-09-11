@@ -10,7 +10,7 @@ use Symfony\Component\Process\Process;
 class InstallCommand extends Command
 {
     protected $signature = 'starter:install {features?*}';
-    protected $description = 'Install starter package: Nova, MediaLibrary, and optional features';
+    protected $description = 'Install starter package: Nova, MediaLibrary, TinyMCE, and optional features';
 
     public function handle(): int
     {
@@ -36,6 +36,9 @@ class InstallCommand extends Command
         }
     }
 
+    // -------------------------
+    // Nova
+    // -------------------------
     protected function installNova(): void
     {
         $this->info("Installing Laravel Nova...");
@@ -54,38 +57,44 @@ class InstallCommand extends Command
 
         $this->runComposerCommand(['require', 'laravel/nova:^5.0']);
 
-        $this->callSilent('vendor:publish', [
+        $this->call('vendor:publish', [
             '--provider' => 'Laravel\Nova\NovaServiceProvider',
             '--force' => true,
         ]);
 
-        $this->info("✅ Laravel Nova installed. Please run the Nova commands separately after this.");
+        $this->info("✅ Laravel Nova installed.");
     }
 
+    // -------------------------
+    // TinyMCE
+    // -------------------------
     protected function installTinyMCE(): void
     {
         $this->info("Installing TinyMCE...");
 
-        if (!is_dir(base_path('vendor/tinymce/tinymce'))) {
-            $this->runComposerCommand(['require', 'tinymce/tinymce:^7.0']);
+        if (!class_exists(\TinyMCE\TinyMCE::class) && !is_dir(base_path('vendor/tinymce/tinymce'))) {
+            $this->runComposerCommand(['require', 'tinymce/tinymce']);
         }
 
         $this->info("✅ TinyMCE installed.");
     }
 
+    // -------------------------
+    // MediaLibrary
+    // -------------------------
     protected function installMediaLibrary(): void
     {
         $this->info("Setting up Spatie MediaLibrary...");
 
         if (!class_exists(\Spatie\MediaLibrary\MediaCollections\Models\Media::class)) {
-            $this->runComposerCommand(['require', 'spatie/laravel-medialibrary:^11.0']);
+            $this->runComposerCommand(['require', 'spatie/laravel-medialibrary']);
         }
 
-        $migrationFiles = database_path('migrations/*_create_media_table.php');
-        if (empty(File::glob($migrationFiles))) {
+        $migrationFiles = glob(database_path('migrations/*_create_media_table.php'));
+        if (empty($migrationFiles)) {
             $this->call('vendor:publish', [
                 '--provider' => 'Spatie\MediaLibrary\MediaLibraryServiceProvider',
-                '--tag' => 'laravel-medialibrary-migrations',
+                '--tag' => 'migrations',
                 '--force' => true,
             ]);
         }
@@ -93,6 +102,9 @@ class InstallCommand extends Command
         $this->info("✅ MediaLibrary setup complete.");
     }
 
+    // -------------------------
+    // Optional Features
+    // -------------------------
     protected function installOptionalFeatures(): void
     {
         $features = $this->argument('features') ?? [];
@@ -110,11 +122,11 @@ class InstallCommand extends Command
         $this->info("Installing Spatie Permission...");
 
         if (!class_exists(\Spatie\Permission\Models\Permission::class)) {
-            $this->runComposerCommand(['require', 'spatie/laravel-permission:^6.0']);
+            $this->runComposerCommand(['require', 'spatie/laravel-permission']);
         }
 
-        $migrationFiles = database_path('migrations/*_create_permission_tables.php');
-        if (empty(File::glob($migrationFiles))) {
+        $migrationFiles = glob(database_path('migrations/*_create_permission_tables.php'));
+        if (empty($migrationFiles)) {
             $this->call('vendor:publish', [
                 '--provider' => 'Spatie\Permission\PermissionServiceProvider',
                 '--tag' => 'laravel-permission-migrations',
@@ -122,7 +134,6 @@ class InstallCommand extends Command
             ]);
         }
 
-        // Only now copy stubs
         $this->publishPermissionStubs();
 
         $this->info("✅ Spatie Permission installed.");
@@ -131,11 +142,9 @@ class InstallCommand extends Command
     protected function publishPermissionStubs(): void
     {
         $stubFolders = ['models', 'nova'];
-
         foreach ($stubFolders as $folder) {
-            $source = __DIR__ . "/../stubs/{$folder}";
+            $source = __DIR__ . '/../../stubs/' . $folder;
             $destination = app_path($folder);
-
             if (File::exists($source)) {
                 File::ensureDirectoryExists($destination);
                 File::copyDirectory($source, $destination);
@@ -146,20 +155,27 @@ class InstallCommand extends Command
         }
     }
 
+    // -------------------------
+    // Migrations
+    // -------------------------
     protected function runMigrations(): void
     {
         $this->call('migrate', ['--force' => true]);
         $this->info("✅ Database migrated.");
     }
 
+    // -------------------------
+    // Helpers
+    // -------------------------
     protected function runComposerCommand(array $command): void
     {
         $process = new Process(array_merge(['composer'], $command));
-        $process->setTimeout(300);
+        $process->setTimeout(600);
 
         try {
-            $process->mustRun();
-            $this->line($process->getOutput());
+            $process->mustRun(function ($type, $buffer) {
+                $this->output->write($buffer);
+            });
         } catch (ProcessFailedException $exception) {
             throw new \Exception("Composer command failed: " . $exception->getMessage());
         }
