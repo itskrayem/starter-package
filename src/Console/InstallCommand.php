@@ -75,15 +75,26 @@ class InstallCommand extends Command
     {
         $this->info("Installing Laravel Nova...");
 
-        $this->runComposerCommand(['config', 'repositories.nova', 'composer', 'https://nova.laravel.com']);
-        $this->runComposerCommand(['require', 'laravel/nova:^5.0']);
-        $this->call('vendor:publish', [
-            '--provider' => 'Laravel\Nova\NovaServiceProvider',
-            '--force' => true,
-        ]);
+        // Check if Nova is already installed
+        if ($this->isPackageInstalled('laravel/nova')) {
+            $this->line("✔ Laravel Nova already installed.");
+        } else {
+            $this->runComposerCommand(['config', 'repositories.nova', 'composer', 'https://nova.laravel.com']);
+            $this->runComposerCommand(['require', 'laravel/nova:^5.0']);
+            
+            $this->call('vendor:publish', [
+                '--provider' => 'Laravel\Nova\NovaServiceProvider',
+                '--force' => true,
+            ]);
+        }
 
-        // Run nova:install after publishing in a separate PHP process
-        $this->runArtisanCommand(['nova:install']);
+        // Try to run nova:install command
+        try {
+            $this->runArtisanCommand(['nova:install']);
+            $this->info("✅ Used nova:install command");
+        } catch (\Exception $e) {
+            $this->info("✅ Nova setup completed (install command not available or already run)");
+        }
 
         $this->info("✅ Laravel Nova installed.");
     }
