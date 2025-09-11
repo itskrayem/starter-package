@@ -57,8 +57,8 @@ class InstallCommand extends Command
             '--force' => true,
         ]);
 
-        // Run nova:install after publishing
-        $this->call('nova:install');
+    // Run nova:install after publishing in a separate PHP process so Artisan can load the newly required package
+    $this->runArtisanCommand(['nova:install']);
 
         $this->info("✅ Laravel Nova installed.");
     }
@@ -176,6 +176,25 @@ class InstallCommand extends Command
             });
         } catch (ProcessFailedException $exception) {
             throw new \Exception("Composer command failed: " . $exception->getMessage());
+        }
+    }
+
+    /**
+     * Run an artisan command in a separate PHP process and stream output.
+     * Uses the same working directory so vendor/bin and vendor/autoload are available after composer changes.
+     */
+    protected function runArtisanCommand(array $args): void
+    {
+        $cmd = array_merge([PHP_BINARY, 'artisan'], $args);
+        $process = new Process($cmd);
+        $process->setTimeout(600);
+
+        try {
+            $process->mustRun(function ($type, $buffer) {
+                $this->output->write($buffer);
+            });
+        } catch (ProcessFailedException $exception) {
+            throw new \Exception("Artisan command failed: " . $exception->getMessage());
         }
     }
 }
