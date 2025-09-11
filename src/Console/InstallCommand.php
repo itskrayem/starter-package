@@ -115,10 +115,20 @@ class InstallCommand extends Command
 
         // Run MediaLibrary installer to create migrations
         try {
-            $this->runArtisanCommand(['medialibrary:install']);
+            $this->runArtisanCommand(['media-library:install']);
             $this->info("✅ MediaLibrary migrations installed successfully.");
         } catch (\Exception $e) {
-            $this->warn("⚠️ MediaLibrary install command failed. You may need to run: php artisan vendor:publish --provider=\"Spatie\\MediaLibrary\\MediaLibraryServiceProvider\" --tag=media-library-migrations --force");
+            $this->warn("⚠️ MediaLibrary install command failed. Attempting to publish migrations manually...");
+            try {
+                $this->call('vendor:publish', [
+                    '--provider' => self::PROVIDER_MEDIALIBRARY,
+                    '--tag' => 'media-library-migrations',
+                    '--force' => true,
+                ]);
+                $this->info("✅ Published MediaLibrary migrations manually.");
+            } catch (\Exception $e2) {
+                $this->warn("⚠️ Failed to publish MediaLibrary migrations. You may need to run: php artisan vendor:publish --provider=\"" . self::PROVIDER_MEDIALIBRARY . "\" --tag=media-library-migrations --force");
+            }
         }
     }
 
@@ -156,7 +166,16 @@ class InstallCommand extends Command
             ]);
             $this->info("✅ Published Spatie Permission migrations successfully.");
         } catch (\Exception $e) {
-            $this->warn("⚠️ Failed to publish permission migrations. Run manually if needed.");
+            $this->warn("⚠️ Failed to publish with tag. Trying provider-only...");
+            try {
+                $this->call('vendor:publish', [
+                    '--provider' => self::PROVIDER_PERMISSION,
+                    '--force' => true,
+                ]);
+                $this->info("✅ Published Spatie Permission migrations via provider.");
+            } catch (\Exception $e2) {
+                $this->warn("⚠️ Failed to publish permission migrations. You may need to run: php artisan vendor:publish --provider=\"" . self::PROVIDER_PERMISSION . "\" --force");
+            }
         }
 
         $this->publishPermissionStubs();
