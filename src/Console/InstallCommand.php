@@ -158,11 +158,12 @@ class InstallCommand extends Command
         try {
             $this->call('vendor:publish', [
                 '--provider' => self::PROVIDER_PERMISSION,
+                '--tag' => 'migrations',
                 '--force' => true,
             ]);
             $this->info("✅ Published Spatie Permission migration and config.");
         } catch (\Exception $e) {
-            $this->warn("⚠️ Failed to publish Permission migration/config. You may need to run: php artisan vendor:publish --provider=\"" . self::PROVIDER_PERMISSION . "\" --force");
+            $this->warn("⚠️ Failed to publish Permission migration/config. You may need to run: php artisan vendor:publish --provider=\"" . self::PROVIDER_PERMISSION . "\" --tag=migrations --force");
         }
 
         // Optionally clear config cache
