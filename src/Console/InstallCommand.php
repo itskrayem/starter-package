@@ -9,6 +9,8 @@ use Symfony\Component\Process\Process;
 
 class InstallCommand extends Command
 {
+    private const PROVIDER_MEDIALIBRARY = 'Spatie\\MediaLibrary\\MediaLibraryServiceProvider';
+    private const PROVIDER_PERMISSION = 'Spatie\\Permission\\PermissionServiceProvider';
     protected $signature = 'starter:install {features?* : Optional features to install (permission, etc.). Use "all" or "core" to install everything}';
     protected $description = 'Install starter package components. Installs core (Nova, MediaLibrary, TinyMCE) by default, or specific features only.';
 
@@ -80,20 +82,15 @@ class InstallCommand extends Command
             $this->line("✔ Laravel Nova already installed.");
         } else {
             $this->runComposerCommand(['config', 'repositories.nova', 'composer', 'https://nova.laravel.com']);
-            $this->runComposerCommand(['require', 'laravel/nova:^5.0']);
-            
-            $this->call('vendor:publish', [
-                '--provider' => 'Laravel\Nova\NovaServiceProvider',
-                '--force' => true,
-            ]);
+            $this->runComposerCommand(['require', 'laravel/nova']);
         }
 
-        // Try to run nova:install command
+        // Run nova:install if available (idempotent)
         try {
             $this->runArtisanCommand(['nova:install']);
             $this->info("✅ Used nova:install command");
         } catch (\Exception $e) {
-            $this->info("✅ Nova setup completed (install command not available or already run)");
+            $this->info("ℹ️ Skipped nova:install (command unavailable or already run)");
         }
 
         $this->info("✅ Laravel Nova installed.");
@@ -110,15 +107,6 @@ class InstallCommand extends Command
             $this->runComposerCommand(['require', 'tinymce/tinymce']);
         } else {
             $this->line("✔ TinyMCE already installed.");
-        }
-
-        // Try to use TinyMCE's install command, fallback to manual setup
-        try {
-            $this->runArtisanCommand(['tinymce:install']);
-            $this->info("✅ Used tinymce:install command");
-        } catch (\Exception $e) {
-            // TinyMCE doesn't have an install command, just require is enough
-            $this->info("✅ TinyMCE package installed (no additional setup required)");
         }
 
         $this->info("✅ TinyMCE setup complete.");
@@ -138,12 +126,16 @@ class InstallCommand extends Command
         }
 
         // Always try to publish migrations if they don't exist
-        if (!$this->mediaTableExists()) {
-            // MediaLibrary doesn't have an install command, just publish migrations directly
-            $this->call('vendor:publish', [
-                '--provider' => 'Spatie\MediaLibrary\MediaLibraryServiceProvider'
-            ]);
-            $this->info("✅ Published MediaLibrary resources (including migrations)");
+        if (!$this->mediaMigrationsExist()) {
+            $published = $this->publishMigrations(
+                self::PROVIDER_MEDIALIBRARY,
+                ['media-library-migrations', 'medialibrary-migrations', 'migrations'],
+                fn () => $this->mediaMigrationsExist()
+            );
+
+            if (!$published) {
+                $this->warn("⚠️ MediaLibrary migrations not found after publish attempts. Try: php artisan vendor:publish --provider=\"" . self::PROVIDER_MEDIALIBRARY . "\" --tag=media-library-migrations");
+            }
         } else {
             $this->info("✅ MediaLibrary migrations already exist");
         }
@@ -176,18 +168,12 @@ class InstallCommand extends Command
             $this->line("✔ Spatie Permission already present.");
         }
 
-        // Try to use Spatie's install command, fallback to manual publishing
-        try {
-            $this->runArtisanCommand(['permission:install']);
-            $this->info("✅ Used permission:install command");
-        } catch (\Exception $e) {
-            // Fallback to manual publishing if install command doesn't exist
-            $this->call('vendor:publish', [
-                '--provider' => 'Spatie\Permission\PermissionServiceProvider',
-                '--tag' => 'migrations'
-            ]);
-            $this->info("✅ Published Spatie Permission migrations manually");
-        }
+        // Publish migrations reliably (no permission:install in v6)
+        $this->publishMigrations(
+            self::PROVIDER_PERMISSION,
+            ['permission-migrations', 'migrations'],
+            fn () => $this->permissionMigrationsExist()
+        );
 
         $this->publishPermissionStubs();
 
@@ -206,8 +192,8 @@ class InstallCommand extends Command
             $source = __DIR__ . '/../stubs/' . $folder;
             
             if (is_dir($source)) {
-                $this->ensureDirectoryExists($destination);
-                $this->copyDirectory($source, $destination);
+                File::ensureDirectoryExists($destination);
+                File::copyDirectory($source, $destination);
                 $this->info("✅ Published permission stubs: {$folder}");
             } else {
                 $this->warn("⚠️ Stub folder not found: {$source}");
@@ -231,10 +217,14 @@ class InstallCommand extends Command
     /**
      * Check if media table migration exists
      */
-    protected function mediaTableExists(): bool
+    protected function mediaMigrationsExist(): bool
     {
-        $migrationFiles = glob($this->databasePath('migrations/*_create_media_table.php'));
-        return !empty($migrationFiles);
+        return (bool) glob($this->databasePath('migrations/*_create_media_table.php'));
+    }
+
+    protected function permissionMigrationsExist(): bool
+    {
+        return (bool) glob($this->databasePath('migrations/*_create_permission_tables.php'));
     }
 
     /**
@@ -262,33 +252,36 @@ class InstallCommand extends Command
     }
 
     /**
-     * Ensure directory exists
+     * Try publishing migrations for a provider with candidate tags, verifying via callback.
      */
-    protected function ensureDirectoryExists(string $path): void
+    protected function publishMigrations(string $provider, array $tags, callable $existsCheck): bool
     {
-        if (!is_dir($path)) {
-            mkdir($path, 0755, true);
-        }
-    }
+        foreach ($tags as $tag) {
+            try {
+                $this->call('vendor:publish', [
+                    '--provider' => $provider,
+                    '--tag' => $tag,
+                ]);
+            } catch (\Throwable $e) {
+                // continue
+            }
 
-    /**
-     * Copy directory recursively
-     */
-    protected function copyDirectory(string $source, string $destination): void
-    {
-        $iterator = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($source, \RecursiveDirectoryIterator::SKIP_DOTS),
-            \RecursiveIteratorIterator::SELF_FIRST
-        );
-
-        foreach ($iterator as $item) {
-            $destPath = $destination . DIRECTORY_SEPARATOR . $iterator->getSubPathName();
-            if ($item->isDir()) {
-                $this->ensureDirectoryExists($destPath);
-            } else {
-                copy($item, $destPath);
+            if (call_user_func($existsCheck)) {
+                $this->info("✅ Published migrations (provider: {$provider}, tag: {$tag})");
+                return true;
             }
         }
+
+        // Final fallback: publish all resources for the provider
+        try {
+            $this->call('vendor:publish', [
+                '--provider' => $provider,
+            ]);
+        } catch (\Throwable $e) {
+            // ignore
+        }
+
+        return (bool) call_user_func($existsCheck);
     }
 
     // -------------------------
