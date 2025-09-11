@@ -113,21 +113,38 @@ class InstallCommand extends Command
             $this->line("✔ Spatie MediaLibrary already installed.");
         }
 
-        // Run MediaLibrary installer to create migrations
+        // Try MediaLibrary installer command first
         try {
             $this->runArtisanCommand(['media-library:install']);
             $this->info("✅ MediaLibrary migrations installed successfully.");
         } catch (\Exception $e) {
             $this->warn("⚠️ MediaLibrary install command failed. Attempting to publish migrations manually...");
-            try {
-                $this->call('vendor:publish', [
-                    '--provider' => self::PROVIDER_MEDIALIBRARY,
-                    '--tag' => 'media-library-migrations',
-                    '--force' => true,
-                ]);
-                $this->info("✅ Published MediaLibrary migrations manually.");
-            } catch (\Exception $e2) {
-                $this->warn("⚠️ Failed to publish MediaLibrary migrations. You may need to run: php artisan vendor:publish --provider=\"" . self::PROVIDER_MEDIALIBRARY . "\" --tag=media-library-migrations --force");
+            $tags = ['media-library-migrations', 'medialibrary-migrations', 'migrations'];
+            $published = false;
+            foreach ($tags as $tag) {
+                try {
+                    $this->call('vendor:publish', [
+                        '--provider' => self::PROVIDER_MEDIALIBRARY,
+                        '--tag' => $tag,
+                        '--force' => true,
+                    ]);
+                    $this->info("✅ Published MediaLibrary migrations with tag: {$tag}");
+                    $published = true;
+                    break;
+                } catch (\Exception $e2) {
+                    // Continue to next tag
+                }
+            }
+            if (!$published) {
+                try {
+                    $this->call('vendor:publish', [
+                        '--provider' => self::PROVIDER_MEDIALIBRARY,
+                        '--force' => true,
+                    ]);
+                    $this->info("✅ Published MediaLibrary resources via provider.");
+                } catch (\Exception $e3) {
+                    $this->warn("⚠️ Failed to publish MediaLibrary migrations. You may need to run: php artisan vendor:publish --provider=\"" . self::PROVIDER_MEDIALIBRARY . "\" --force");
+                }
             }
         }
     }
@@ -158,15 +175,23 @@ class InstallCommand extends Command
         }
 
         // Publish permission migrations
-        try {
-            $this->call('vendor:publish', [
-                '--provider' => self::PROVIDER_PERMISSION,
-                '--tag' => 'permission-migrations',
-                '--force' => true,
-            ]);
-            $this->info("✅ Published Spatie Permission migrations successfully.");
-        } catch (\Exception $e) {
-            $this->warn("⚠️ Failed to publish with tag. Trying provider-only...");
+        $tags = ['permission-migrations', 'migrations'];
+        $published = false;
+        foreach ($tags as $tag) {
+            try {
+                $this->call('vendor:publish', [
+                    '--provider' => self::PROVIDER_PERMISSION,
+                    '--tag' => $tag,
+                    '--force' => true,
+                ]);
+                $this->info("✅ Published Spatie Permission migrations with tag: {$tag}");
+                $published = true;
+                break;
+            } catch (\Exception $e) {
+                // Continue to next tag
+            }
+        }
+        if (!$published) {
             try {
                 $this->call('vendor:publish', [
                     '--provider' => self::PROVIDER_PERMISSION,
