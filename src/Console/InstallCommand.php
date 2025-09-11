@@ -175,7 +175,8 @@ class InstallCommand extends Command
         $stubFolders = [
             'models' => $this->appPath('Models'),
             'nova' => $this->appPath('Nova'),
-            'seeders' => $this->databasePath('seeders')
+            'seeders' => $this->databasePath('seeders'),
+            'migrations' => $this->databasePath('migrations')
         ];
 
         foreach ($stubFolders as $folder => $destination) {
