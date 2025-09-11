@@ -9,41 +9,63 @@ use Symfony\Component\Process\Process;
 
 class InstallCommand extends Command
 {
-    protected $signature = 'starter:install {features?*}';
-    protected $description = 'Install starter package: Nova, MediaLibrary, TinyMCE, and optional features';
+    protected $signature = 'starter:install {features?* : Optional features to install (permission, etc.). Use "all" or "core" to install everything}';
+    protected $description = 'Install starter package components. Installs core (Nova, MediaLibrary, TinyMCE) by default, or specific features only.';
 
     public function handle(): int
     {
         $this->info("🚀 Installing Starter Package...");
 
         try {
-                $features = $this->argument('features') ?? [];
+            $features = $this->argument('features') ?? [];
 
-                // If no features were passed, or the caller explicitly asked for "all" or "core",
-                // run the full/core installers. Otherwise skip the core installers and only
-                // run the requested feature installers (e.g. "permission").
-                if (empty($features) || in_array('all', $features, true) || in_array('core', $features, true)) {
-                    $this->installNova();
-                    $this->installTinyMCE();
-                    $this->installMediaLibrary();
-                } else {
-                    $this->info("\u2139\ufe0f Skipping core installers (Nova, TinyMCE, MediaLibrary). Installing requested features: " . implode(', ', $features));
-                }
+            if ($this->shouldInstallCore($features)) {
+                $this->installCoreComponents();
+            } else {
+                $this->info("ℹ️ Skipping core components. Installing features: " . implode(', ', $features));
+            }
 
-                $this->installOptionalFeatures();
-                $this->runMigrations();
+            $this->installOptionalFeatures();
+            $this->runMigrations();
+            $this->displayCompletionMessage();
 
-                $this->info("🎉 Starter Package installation complete!");
-                $this->newLine();
-                $this->info("Next steps:");
-                $this->line("1️⃣ Generate Nova User resource: php artisan nova:resource User");
-                $this->line("2️⃣ Create your first Nova user: php artisan nova:user");
-
-                return Command::SUCCESS;
-            } catch (\Exception $e) {
-                $this->error("❌ Installation failed: {$e->getMessage()}");
-                return Command::FAILURE;
+            return Command::SUCCESS;
+        } catch (\Exception $e) {
+            $this->error("❌ Installation failed: {$e->getMessage()}");
+            return Command::FAILURE;
         }
+    }
+
+    /**
+     * Determine if core components should be installed
+     */
+    protected function shouldInstallCore(array $features): bool
+    {
+        return empty($features) || 
+               in_array('all', $features, true) || 
+               in_array('core', $features, true);
+    }
+
+    /**
+     * Install all core components
+     */
+    protected function installCoreComponents(): void
+    {
+        $this->installNova();
+        $this->installTinyMCE();
+        $this->installMediaLibrary();
+    }
+
+    /**
+     * Display completion message with next steps
+     */
+    protected function displayCompletionMessage(): void
+    {
+        $this->info("🎉 Starter Package installation complete!");
+        $this->newLine();
+        $this->info("Next steps:");
+        $this->line("1️⃣ Generate Nova User resource: php artisan nova:resource User");
+        $this->line("2️⃣ Create your first Nova user: php artisan nova:user");
     }
 
     // -------------------------
@@ -53,22 +75,15 @@ class InstallCommand extends Command
     {
         $this->info("Installing Laravel Nova...");
 
-        $this->runComposerCommand([
-            'config',
-            'repositories.nova',
-            'composer',
-            'https://nova.laravel.com'
-        ]);
-
+        $this->runComposerCommand(['config', 'repositories.nova', 'composer', 'https://nova.laravel.com']);
         $this->runComposerCommand(['require', 'laravel/nova:^5.0']);
-
         $this->call('vendor:publish', [
             '--provider' => 'Laravel\Nova\NovaServiceProvider',
             '--force' => true,
         ]);
 
-    // Run nova:install after publishing in a separate PHP process so Artisan can load the newly required package
-    $this->runArtisanCommand(['nova:install']);
+        // Run nova:install after publishing in a separate PHP process
+        $this->runArtisanCommand(['nova:install']);
 
         $this->info("✅ Laravel Nova installed.");
     }
@@ -80,11 +95,13 @@ class InstallCommand extends Command
     {
         $this->info("Installing TinyMCE...");
 
-        if (!class_exists(\TinyMCE\TinyMCE::class) && !is_dir(base_path('vendor/tinymce/tinymce'))) {
+        if (!$this->isPackageInstalled('tinymce/tinymce')) {
             $this->runComposerCommand(['require', 'tinymce/tinymce']);
+        } else {
+            $this->line("✔ TinyMCE already installed.");
         }
 
-        $this->info("✅ TinyMCE installed.");
+        $this->info("✅ TinyMCE setup complete.");
     }
 
     // -------------------------
@@ -94,12 +111,13 @@ class InstallCommand extends Command
     {
         $this->info("Setting up Spatie MediaLibrary...");
 
-        if (!class_exists(\Spatie\MediaLibrary\MediaCollections\Models\Media::class)) {
+        if (!$this->isPackageInstalled('spatie/laravel-medialibrary')) {
             $this->runComposerCommand(['require', 'spatie/laravel-medialibrary']);
+        } else {
+            $this->line("✔ Spatie MediaLibrary already installed.");
         }
 
-        $migrationFiles = glob(database_path('migrations/*_create_media_table.php'));
-        if (empty($migrationFiles)) {
+        if (!$this->mediaTableExists()) {
             $this->call('vendor:publish', [
                 '--provider' => 'Spatie\MediaLibrary\MediaLibraryServiceProvider',
                 '--tag' => 'migrations',
@@ -128,60 +146,108 @@ class InstallCommand extends Command
     protected function installPermission(): void
     {
         $this->info("Installing Spatie Permission...");
-        // Only run composer require if the package isn't present in vendor
-        $vendorPath = base_path('vendor/spatie/laravel-permission');
-        if (!class_exists(\Spatie\Permission\Models\Permission::class) && !is_dir($vendorPath)) {
+        
+        if (!$this->isPackageInstalled('spatie/laravel-permission')) {
             $this->runComposerCommand(['require', 'spatie/laravel-permission']);
         } else {
             $this->line("✔ Spatie Permission already present.");
         }
 
-        // Publish the package migrations (so we can migrate only those files)
-        $this->call('vendor:publish', [
-            '--provider' => 'Spatie\\Permission\\PermissionServiceProvider',
-            '--tag' => 'migrations',
-            '--force' => true,
-        ]);
-
-        // Copy package stubs into the application (models, Nova resources)
         $this->publishPermissionStubs();
 
-        // Run only the published permission migrations (don't run global migrate unless necessary)
-        $migrationPatterns = [
-            database_path('migrations/*permission*.php'),
-            database_path('migrations/*create_permission*.php'),
-            database_path('migrations/*create_permission_tables*.php'),
-        ];
-
-        $found = false;
-        foreach ($migrationPatterns as $pattern) {
-            foreach (glob($pattern) as $file) {
-                $found = true;
-                // run migrate for this specific migration file path relative to project root
-                $relativePath = str_replace(base_path() . '/', '', $file);
-                $this->runArtisanCommand(['migrate', '--path=' . $relativePath, '--force']);
-            }
-        }
-
-        if (! $found) {
-            $this->warn("\u26a0\ufe0f No permission migrations were published — nothing to migrate.");
-        }
-
-        $this->info("✅ Spatie Permission installed (package required + stubs published + migrations run).");
+        $this->info("✅ Spatie Permission installed (package required + stubs published).");
     }
 
     protected function publishPermissionStubs(): void
     {
         $stubFolders = ['models', 'nova'];
+        
         foreach ($stubFolders as $folder) {
             $source = __DIR__ . '/../stubs/' . $folder;
-            $destination = app_path($folder);
-            if (File::exists($source)) {
-                File::ensureDirectoryExists($destination);
-                File::copyDirectory($source, $destination);
+            $destination = $this->appPath($folder);
+            
+            if (is_dir($source)) {
+                $this->ensureDirectoryExists($destination);
+                $this->copyDirectory($source, $destination);
                 $this->info("✅ Published permission stubs: {$folder}");
             } else {
                 $this->warn("⚠️ Stub folder not found: {$source}");
+            }
+        }
+    }
+
+    // -------------------------
+    // Helper Methods
+    // -------------------------
+
+    /**
+     * Check if a composer package is installed
+     */
+    protected function isPackageInstalled(string $packageName): bool
+    {
+        $vendorPath = $this->basePath("vendor/{$packageName}");
+        return is_dir($vendorPath);
+    }
+
+    /**
+     * Check if media table migration exists
+     */
+    protected function mediaTableExists(): bool
+    {
+        $migrationFiles = glob($this->databasePath('migrations/*_create_media_table.php'));
+        return !empty($migrationFiles);
+    }
+
+    /**
+     * Get the base path of the Laravel installation
+     */
+    protected function basePath(string $path = ''): string
+    {
+        return base_path($path);
+    }
+
+    /**
+     * Get the database path
+     */
+    protected function databasePath(string $path = ''): string
+    {
+        return database_path($path);
+    }
+
+    /**
+     * Get the app path
+     */
+    protected function appPath(string $path = ''): string
+    {
+        return app_path($path);
+    }
+
+    /**
+     * Ensure directory exists
+     */
+    protected function ensureDirectoryExists(string $path): void
+    {
+        if (!is_dir($path)) {
+            mkdir($path, 0755, true);
+        }
+    }
+
+    /**
+     * Copy directory recursively
+     */
+    protected function copyDirectory(string $source, string $destination): void
+    {
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($source, \RecursiveDirectoryIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::SELF_FIRST
+        );
+
+        foreach ($iterator as $item) {
+            $destPath = $destination . DIRECTORY_SEPARATOR . $iterator->getSubPathName();
+            if ($item->isDir()) {
+                $this->ensureDirectoryExists($destPath);
+            } else {
+                copy($item, $destPath);
             }
         }
     }
