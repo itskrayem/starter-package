@@ -118,23 +118,18 @@ class InstallCommand extends Command
     protected function installPermission(): void
     {
         $this->info("Installing Spatie Permission...");
-
-        if (!class_exists(\Spatie\Permission\Models\Permission::class)) {
+        // Only run composer require if the package isn't present in vendor
+        $vendorPath = base_path('vendor/spatie/laravel-permission');
+        if (!class_exists(\Spatie\Permission\Models\Permission::class) && !is_dir($vendorPath)) {
             $this->runComposerCommand(['require', 'spatie/laravel-permission']);
+        } else {
+            $this->line("✔ Spatie Permission already present.");
         }
 
-        $migrationFiles = glob(database_path('migrations/*_create_permission_tables.php'));
-        if (empty($migrationFiles)) {
-            $this->call('vendor:publish', [
-                '--provider' => 'Spatie\Permission\PermissionServiceProvider',
-                '--tag' => 'laravel-permission-migrations',
-                '--force' => true,
-            ]);
-        }
-
+        // Copy package stubs into the application (models, Nova resources)
         $this->publishPermissionStubs();
 
-        $this->info("✅ Spatie Permission installed.");
+        $this->info("✅ Spatie Permission installed (package required + stubs published).");
     }
 
     protected function publishPermissionStubs(): void
