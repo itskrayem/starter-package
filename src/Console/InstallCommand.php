@@ -11,6 +11,7 @@ class InstallCommand extends Command
 {
     private const PROVIDER_MEDIALIBRARY = 'Spatie\\MediaLibrary\\MediaLibraryServiceProvider';
     private const PROVIDER_PERMISSION = 'Spatie\\Permission\\PermissionServiceProvider';
+
     protected $signature = 'starter:install {features?* : Optional features to install (permission, etc.). Use "all" or "core" to install everything}';
     protected $description = 'Install starter package components. Installs core (Nova, MediaLibrary, TinyMCE) by default, or specific features only.';
 
@@ -27,7 +28,7 @@ class InstallCommand extends Command
                 $this->info("ℹ️ Skipping core components. Installing features: " . implode(', ', $features));
             }
 
-            $this->installOptionalFeatures();
+            $this->installOptionalFeatures($features);
             $this->runMigrations();
             $this->displayCompletionMessage();
 
@@ -38,19 +39,11 @@ class InstallCommand extends Command
         }
     }
 
-    /**
-     * Determine if core components should be installed
-     */
     protected function shouldInstallCore(array $features): bool
     {
-        return empty($features) || 
-               in_array('all', $features, true) || 
-               in_array('core', $features, true);
+        return empty($features) || in_array('all', $features, true) || in_array('core', $features, true);
     }
 
-    /**
-     * Install all core components
-     */
     protected function installCoreComponents(): void
     {
         $this->installNova();
@@ -58,9 +51,6 @@ class InstallCommand extends Command
         $this->installMediaLibrary();
     }
 
-    /**
-     * Display completion message with next steps
-     */
     protected function displayCompletionMessage(): void
     {
         $this->info("🎉 Starter Package installation complete!");
@@ -77,7 +67,6 @@ class InstallCommand extends Command
     {
         $this->info("Installing Laravel Nova...");
 
-        // Check if Nova is already installed
         if ($this->isPackageInstalled('laravel/nova')) {
             $this->line("✔ Laravel Nova already installed.");
         } else {
@@ -85,11 +74,11 @@ class InstallCommand extends Command
             $this->runComposerCommand(['require', 'laravel/nova']);
         }
 
-        // Run nova:install if available (idempotent)
+        // Run nova:install if available
         try {
             $this->runArtisanCommand(['nova:install']);
             $this->info("✅ Used nova:install command");
-        } catch (\Exception $e) {
+        } catch (\Exception) {
             $this->info("ℹ️ Skipped nova:install (command unavailable or already run)");
         }
 
@@ -125,19 +114,21 @@ class InstallCommand extends Command
             $this->line("✔ Spatie MediaLibrary already installed.");
         }
 
-        // Always try to publish migrations if they don't exist
+        // Force publish migrations
         if (!$this->mediaMigrationsExist()) {
-            $published = $this->publishMigrations(
-                self::PROVIDER_MEDIALIBRARY,
-                ['media-library-migrations', 'medialibrary-migrations', 'migrations'],
-                fn () => $this->mediaMigrationsExist()
-            );
+            $this->call('vendor:publish', [
+                '--provider' => self::PROVIDER_MEDIALIBRARY,
+                '--tag' => 'media-library-migrations',
+                '--force' => true,
+            ]);
 
-            if (!$published) {
-                $this->warn("⚠️ MediaLibrary migrations not found after publish attempts. Try: php artisan vendor:publish --provider=\"" . self::PROVIDER_MEDIALIBRARY . "\" --tag=media-library-migrations");
+            if ($this->mediaMigrationsExist()) {
+                $this->info("✅ MediaLibrary migrations published successfully.");
+            } else {
+                $this->warn("⚠️ MediaLibrary migrations still not found! Run: php artisan vendor:publish --provider=\"" . self::PROVIDER_MEDIALIBRARY . "\" --tag=media-library-migrations --force");
             }
         } else {
-            $this->info("✅ MediaLibrary migrations already exist");
+            $this->info("✅ MediaLibrary migrations already exist.");
         }
 
         $this->info("✅ MediaLibrary setup complete.");
@@ -146,9 +137,8 @@ class InstallCommand extends Command
     // -------------------------
     // Optional Features
     // -------------------------
-    protected function installOptionalFeatures(): void
+    protected function installOptionalFeatures(array $features): void
     {
-        $features = $this->argument('features') ?? [];
         foreach ($features as $feature) {
             if ($feature === 'permission') {
                 $this->installPermission();
@@ -161,23 +151,33 @@ class InstallCommand extends Command
     protected function installPermission(): void
     {
         $this->info("Installing Spatie Permission...");
-        
+
         if (!$this->isPackageInstalled('spatie/laravel-permission')) {
             $this->runComposerCommand(['require', 'spatie/laravel-permission']);
         } else {
             $this->line("✔ Spatie Permission already present.");
         }
 
-        // Publish migrations reliably (no permission:install in v6)
-        $this->publishMigrations(
-            self::PROVIDER_PERMISSION,
-            ['permission-migrations', 'migrations'],
-            fn () => $this->permissionMigrationsExist()
-        );
+        // Force publish migrations
+        if (!$this->permissionMigrationsExist()) {
+            $this->call('vendor:publish', [
+                '--provider' => self::PROVIDER_PERMISSION,
+                '--tag' => 'migrations',
+                '--force' => true,
+            ]);
+
+            if ($this->permissionMigrationsExist()) {
+                $this->info("✅ Permission migrations published successfully.");
+            } else {
+                $this->warn("⚠️ Permission migrations still not found! Run: php artisan vendor:publish --provider=\"" . self::PROVIDER_PERMISSION . "\" --tag=migrations --force");
+            }
+        } else {
+            $this->info("✅ Permission migrations already exist.");
+        }
 
         $this->publishPermissionStubs();
 
-        $this->info("✅ Spatie Permission installed (package required + migrations published + stubs published).");
+        $this->info("✅ Spatie Permission installed (package + migrations + stubs).");
     }
 
     protected function publishPermissionStubs(): void
@@ -187,10 +187,10 @@ class InstallCommand extends Command
             'nova' => $this->appPath('Nova'),
             'seeders' => $this->databasePath('seeders')
         ];
-        
+
         foreach ($stubFolders as $folder => $destination) {
             $source = __DIR__ . '/../stubs/' . $folder;
-            
+
             if (is_dir($source)) {
                 File::ensureDirectoryExists($destination);
                 File::copyDirectory($source, $destination);
@@ -204,19 +204,11 @@ class InstallCommand extends Command
     // -------------------------
     // Helper Methods
     // -------------------------
-
-    /**
-     * Check if a composer package is installed
-     */
     protected function isPackageInstalled(string $packageName): bool
     {
-        $vendorPath = $this->basePath("vendor/{$packageName}");
-        return is_dir($vendorPath);
+        return is_dir($this->basePath("vendor/{$packageName}"));
     }
 
-    /**
-     * Check if media table migration exists
-     */
     protected function mediaMigrationsExist(): bool
     {
         return (bool) glob($this->databasePath('migrations/*_create_media_table.php'));
@@ -227,93 +219,39 @@ class InstallCommand extends Command
         return (bool) glob($this->databasePath('migrations/*_create_permission_tables.php'));
     }
 
-    /**
-     * Get the base path of the Laravel installation
-     */
     protected function basePath(string $path = ''): string
     {
         return base_path($path);
     }
 
-    /**
-     * Get the database path
-     */
     protected function databasePath(string $path = ''): string
     {
         return database_path($path);
     }
 
-    /**
-     * Get the app path
-     */
     protected function appPath(string $path = ''): string
     {
         return app_path($path);
     }
 
-    /**
-     * Try publishing migrations for a provider with candidate tags, verifying via callback.
-     */
-    protected function publishMigrations(string $provider, array $tags, callable $existsCheck): bool
-    {
-        foreach ($tags as $tag) {
-            try {
-                $this->call('vendor:publish', [
-                    '--provider' => $provider,
-                    '--tag' => $tag,
-                ]);
-            } catch (\Throwable $e) {
-                // continue
-            }
-
-            if (call_user_func($existsCheck)) {
-                $this->info("✅ Published migrations (provider: {$provider}, tag: {$tag})");
-                return true;
-            }
-        }
-
-        // Final fallback: publish all resources for the provider
-        try {
-            $this->call('vendor:publish', [
-                '--provider' => $provider,
-            ]);
-        } catch (\Throwable $e) {
-            // ignore
-        }
-
-        return (bool) call_user_func($existsCheck);
-    }
-
-    // -------------------------
-    // Migrations
-    // -------------------------
     protected function runMigrations(): void
     {
         $this->call('migrate', ['--force' => true]);
         $this->info("✅ Database migrated.");
     }
 
-    // -------------------------
-    // Helpers
-    // -------------------------
     protected function runComposerCommand(array $command): void
     {
         $process = new Process(array_merge(['composer'], $command));
         $process->setTimeout(600);
 
         try {
-            $process->mustRun(function ($type, $buffer) {
-                $this->output->write($buffer);
-            });
+            $process->mustRun(fn($type, $buffer) => $this->output->write($buffer));
         } catch (ProcessFailedException $exception) {
             throw new \Exception("Composer command failed: " . $exception->getMessage());
         }
     }
 
-    /**
-     * Run an artisan command in a separate PHP process and stream output.
-     * Uses the same working directory so vendor/bin and vendor/autoload are available after composer changes.
-     */
     protected function runArtisanCommand(array $args): void
     {
         $cmd = array_merge([PHP_BINARY, 'artisan'], $args);
@@ -321,9 +259,7 @@ class InstallCommand extends Command
         $process->setTimeout(600);
 
         try {
-            $process->mustRun(function ($type, $buffer) {
-                $this->output->write($buffer);
-            });
+            $process->mustRun(fn($type, $buffer) => $this->output->write($buffer));
         } catch (ProcessFailedException $exception) {
             throw new \Exception("Artisan command failed: " . $exception->getMessage());
         }
