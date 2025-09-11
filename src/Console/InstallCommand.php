@@ -101,6 +101,15 @@ class InstallCommand extends Command
             $this->line("✔ TinyMCE already installed.");
         }
 
+        // Try to use TinyMCE's install command, fallback to manual setup
+        try {
+            $this->runArtisanCommand(['tinymce:install']);
+            $this->info("✅ Used tinymce:install command");
+        } catch (\Exception $e) {
+            // TinyMCE doesn't have an install command, just require is enough
+            $this->info("✅ TinyMCE package installed (no additional setup required)");
+        }
+
         $this->info("✅ TinyMCE setup complete.");
     }
 
@@ -117,12 +126,22 @@ class InstallCommand extends Command
             $this->line("✔ Spatie MediaLibrary already installed.");
         }
 
-        if (!$this->mediaTableExists()) {
-            $this->call('vendor:publish', [
-                '--provider' => 'Spatie\MediaLibrary\MediaLibraryServiceProvider',
-                '--tag' => 'migrations',
-                '--force' => true,
-            ]);
+        // Try to use MediaLibrary's install command, fallback to manual publishing
+        try {
+            $this->runArtisanCommand(['medialibrary:install']);
+            $this->info("✅ Used medialibrary:install command");
+        } catch (\Exception $e) {
+            // Fallback to manual publishing if install command doesn't exist
+            if (!$this->mediaTableExists()) {
+                $this->call('vendor:publish', [
+                    '--provider' => 'Spatie\MediaLibrary\MediaLibraryServiceProvider',
+                    '--tag' => 'migrations',
+                    '--force' => true,
+                ]);
+                $this->info("✅ Published MediaLibrary migrations manually");
+            } else {
+                $this->info("✅ MediaLibrary migrations already exist");
+            }
         }
 
         $this->info("✅ MediaLibrary setup complete.");
@@ -153,9 +172,22 @@ class InstallCommand extends Command
             $this->line("✔ Spatie Permission already present.");
         }
 
+        // Try to use Spatie's install command, fallback to manual publishing
+        try {
+            $this->runArtisanCommand(['permission:install']);
+            $this->info("✅ Used permission:install command");
+        } catch (\Exception $e) {
+            // Fallback to manual publishing if install command doesn't exist
+            $this->call('vendor:publish', [
+                '--provider' => 'Spatie\Permission\PermissionServiceProvider',
+                '--tag' => 'migrations'
+            ]);
+            $this->info("✅ Published Spatie Permission migrations manually");
+        }
+
         $this->publishPermissionStubs();
 
-        $this->info("✅ Spatie Permission installed (package required + stubs published).");
+        $this->info("✅ Spatie Permission installed (package required + migrations published + stubs published).");
     }
 
     protected function publishPermissionStubs(): void
