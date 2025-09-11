@@ -10,22 +10,33 @@ use Symfony\Component\Process\Process;
 class InstallCommand extends Command
 {
     protected $signature = 'starter:install {features?*}';
-    protected $description = 'Install starter package: Nova, MediaLibrary, TinyMCE, and optional features';
+    protected $description = 'Install Starter Package: Nova, MediaLibrary, TinyMCE, and optional features';
 
     public function handle(): int
     {
-        $this->info("🚀 Installing Starter Package...");
+        $this->info('🚀 Starting Starter Package installation...');
+
+        // Step 1: Configure Nova credentials
+        $this->configureNovaCredentials();
 
         try {
+            // Step 2: Install Nova
             $this->installNova();
+
+            // Step 3: Install TinyMCE
             $this->installTinyMCE();
+
+            // Step 4: Install MediaLibrary
             $this->installMediaLibrary();
+
+            // Step 5: Install optional features
             $this->installOptionalFeatures();
+
+            // Step 6: Run migrations
             $this->runMigrations();
 
-            $this->info("🎉 Starter Package installation complete!");
-            $this->newLine();
-            $this->info("Next steps:");
+            $this->info('🎉 Starter Package installation complete!');
+            $this->line("Next steps:");
             $this->line("1️⃣ Generate Nova User resource: php artisan nova:resource User");
             $this->line("2️⃣ Create your first Nova user: php artisan nova:user");
 
@@ -36,24 +47,71 @@ class InstallCommand extends Command
         }
     }
 
-    // -------------------------
-    // Nova
-    // -------------------------
-    protected function installNova(): void
+    protected function configureNovaCredentials(): void
     {
-        $this->info("Installing Laravel Nova...");
+        $this->info('🔐 Checking for existing Nova credentials...');
 
-        if (class_exists(\Laravel\Nova\Nova::class)) {
-            $this->line("✅ Laravel Nova is already installed.");
+        // Check global config
+        $checkGlobal = new Process(['composer', 'config', '--global', 'http-basic.nova.laravel.com']);
+        $checkGlobal->run();
+
+        if ($checkGlobal->isSuccessful() && trim($checkGlobal->getOutput()) !== '') {
+            $this->info('✔ Nova credentials already configured globally.');
             return;
         }
 
-        $this->runComposerCommand([
-            'config',
-            'repositories.nova',
-            'composer',
-            'https://nova.laravel.com'
+        // Check local (project) config
+        $checkLocal = new Process(['composer', 'config', 'http-basic.nova.laravel.com']);
+        $checkLocal->run();
+
+        if ($checkLocal->isSuccessful() && trim($checkLocal->getOutput()) !== '') {
+            $this->info('✔ Nova credentials already configured for this project.');
+            return;
+        }
+
+        // Ask user for credentials
+        $email = $this->ask('📧 Enter your Nova account email');
+        $password = $this->secret('🔑 Enter your Nova account password (or API token)');
+        $scope = $this->choice(
+            'Where do you want to save these credentials?',
+            ['local (this project only)', 'global (for all projects)'],
+            0
+        );
+
+        $this->info('⚙ Configuring Nova credentials...');
+
+        $args = ['composer', 'config'];
+        if (str_starts_with($scope, 'global')) {
+            $args[] = '--global';
+        }
+
+        $args = array_merge($args, [
+            'http-basic.nova.laravel.com',
+            $email,
+            $password,
         ]);
+
+        $process = new Process($args);
+        $process->setTimeout(null);
+        $process->run(function ($type, $buffer) {
+            $this->output->write($buffer);
+        });
+
+        if ($process->isSuccessful()) {
+            $this->info('✅ Nova credentials configured successfully.');
+        } else {
+            $this->error('❌ Failed to configure Nova credentials.');
+        }
+    }
+
+    protected function installNova(): void
+    {
+        $this->info('📦 Installing Laravel Nova...');
+
+        if (class_exists(\Laravel\Nova\Nova::class)) {
+            $this->line("✔ Laravel Nova is already installed.");
+            return;
+        }
 
         $this->runComposerCommand(['require', 'laravel/nova:^5.0']);
 
@@ -62,49 +120,33 @@ class InstallCommand extends Command
             '--force' => true,
         ]);
 
-        $this->info("✅ Laravel Nova installed.");
+        $this->info('✅ Laravel Nova installed. Run Nova commands separately.');
     }
 
-    // -------------------------
-    // TinyMCE
-    // -------------------------
     protected function installTinyMCE(): void
     {
-        $this->info("Installing TinyMCE...");
-
-        if (!class_exists(\TinyMCE\TinyMCE::class) && !is_dir(base_path('vendor/tinymce/tinymce'))) {
-            $this->runComposerCommand(['require', 'tinymce/tinymce']);
-        }
-
-        $this->info("✅ TinyMCE installed.");
+        $this->info('📦 Installing TinyMCE...');
+        $this->runComposerCommand(['require', 'tinymce/tinymce']);
+        $this->info('✅ TinyMCE installed.');
     }
 
-    // -------------------------
-    // MediaLibrary
-    // -------------------------
     protected function installMediaLibrary(): void
     {
-        $this->info("Setting up Spatie MediaLibrary...");
+        $this->info('📦 Setting up Spatie MediaLibrary...');
+        $this->runComposerCommand(['require', 'spatie/laravel-medialibrary']);
 
-        if (!class_exists(\Spatie\MediaLibrary\MediaCollections\Models\Media::class)) {
-            $this->runComposerCommand(['require', 'spatie/laravel-medialibrary']);
-        }
-
-        $migrationFiles = glob(database_path('migrations/*_create_media_table.php'));
-        if (empty($migrationFiles)) {
+        $migrationFiles = database_path('migrations/*_create_media_table.php');
+        if (empty(File::glob($migrationFiles))) {
             $this->call('vendor:publish', [
                 '--provider' => 'Spatie\MediaLibrary\MediaLibraryServiceProvider',
-                '--tag' => 'migrations',
+                '--tag' => 'laravel-medialibrary-migrations',
                 '--force' => true,
             ]);
         }
 
-        $this->info("✅ MediaLibrary setup complete.");
+        $this->info('✅ MediaLibrary setup complete.');
     }
 
-    // -------------------------
-    // Optional Features
-    // -------------------------
     protected function installOptionalFeatures(): void
     {
         $features = $this->argument('features') ?? [];
@@ -112,21 +154,18 @@ class InstallCommand extends Command
             if ($feature === 'permission') {
                 $this->installPermission();
             } else {
-                $this->warn("⚠️ Unknown feature: {$feature}");
+                $this->warn("⚠ Unknown feature: {$feature}");
             }
         }
     }
 
     protected function installPermission(): void
     {
-        $this->info("Installing Spatie Permission...");
+        $this->info('📦 Installing Spatie Permission...');
+        $this->runComposerCommand(['require', 'spatie/laravel-permission']);
 
-        if (!class_exists(\Spatie\Permission\Models\Permission::class)) {
-            $this->runComposerCommand(['require', 'spatie/laravel-permission']);
-        }
-
-        $migrationFiles = glob(database_path('migrations/*_create_permission_tables.php'));
-        if (empty($migrationFiles)) {
+        $migrationFiles = database_path('migrations/*_create_permission_tables.php');
+        if (empty(File::glob($migrationFiles))) {
             $this->call('vendor:publish', [
                 '--provider' => 'Spatie\Permission\PermissionServiceProvider',
                 '--tag' => 'laravel-permission-migrations',
@@ -135,8 +174,7 @@ class InstallCommand extends Command
         }
 
         $this->publishPermissionStubs();
-
-        $this->info("✅ Spatie Permission installed.");
+        $this->info('✅ Spatie Permission installed.');
     }
 
     protected function publishPermissionStubs(): void
@@ -150,32 +188,25 @@ class InstallCommand extends Command
                 File::copyDirectory($source, $destination);
                 $this->info("✅ Published permission stubs: {$folder}");
             } else {
-                $this->warn("⚠️ Stub folder not found: {$source}");
+                $this->warn("⚠ Stub folder not found: {$source}");
             }
         }
     }
 
-    // -------------------------
-    // Migrations
-    // -------------------------
     protected function runMigrations(): void
     {
         $this->call('migrate', ['--force' => true]);
-        $this->info("✅ Database migrated.");
+        $this->info('✅ Database migrated.');
     }
 
-    // -------------------------
-    // Helpers
-    // -------------------------
     protected function runComposerCommand(array $command): void
     {
         $process = new Process(array_merge(['composer'], $command));
         $process->setTimeout(600);
 
         try {
-            $process->mustRun(function ($type, $buffer) {
-                $this->output->write($buffer);
-            });
+            $process->mustRun();
+            $this->line($process->getOutput());
         } catch (ProcessFailedException $exception) {
             throw new \Exception("Composer command failed: " . $exception->getMessage());
         }
