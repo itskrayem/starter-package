@@ -57,7 +57,6 @@ class InstallCommand extends Command
 
         $this->runComposerCommand(['require', 'laravel/nova:^5.0']);
 
-        $this->call('nova:install');
         $this->call('vendor:publish', [
             '--provider' => 'Laravel\Nova\NovaServiceProvider',
             '--force' => true,
