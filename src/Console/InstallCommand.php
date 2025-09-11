@@ -4,7 +4,13 @@ namespace ItsKrayem\StarterPackage\Console;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
-use Symfony\Component\Process\Exception\ProcessFailedException;
+use Symfony\Component\Process\E        // Always publish migration and config after install/discover
+        try {
+            $this->runArtisanCommand(['vendor:publish', '--provider=' . self::PROVIDER_PERMISSION, '--force']);
+            $this->info("✅ Published Spatie Permission migration and config.");
+        } catch (\Exception $e) {
+            $this->warn("⚠️ Failed to publish Permission migration/config. You may need to run: php artisan vendor:publish --provider=\"" . self::PROVIDER_PERMISSION . "\" --force");
+        }ocessFailedException;
 use Symfony\Component\Process\Process;
 
 class InstallCommand extends Command
@@ -117,11 +123,7 @@ class InstallCommand extends Command
 
         // Always try to publish the migration after install/discover
         try {
-            $this->call('vendor:publish', [
-                '--provider' => self::PROVIDER_MEDIALIBRARY,
-                '--tag' => 'medialibrary-migrations',
-                '--force' => true,
-            ]);
+            $this->runArtisanCommand(['vendor:publish', '--provider=' . self::PROVIDER_MEDIALIBRARY, '--tag=medialibrary-migrations', '--force']);
             $this->info("✅ Published MediaLibrary migrations with tag: medialibrary-migrations");
         } catch (\Exception $e) {
             $this->warn("⚠️ Failed to publish MediaLibrary migrations. You may need to run: php artisan vendor:publish --provider=\"" . self::PROVIDER_MEDIALIBRARY . "\" --tag=medialibrary-migrations --force");
@@ -156,14 +158,10 @@ class InstallCommand extends Command
 
         // Always publish migration and config after install/discover
         try {
-            $this->call('vendor:publish', [
-                '--provider' => self::PROVIDER_PERMISSION,
-                '--tag' => 'migrations',
-                '--force' => true,
-            ]);
+            $this->runArtisanCommand(['vendor:publish', '--provider=' . self::PROVIDER_PERMISSION, '--force']);
             $this->info("✅ Published Spatie Permission migration and config.");
         } catch (\Exception $e) {
-            $this->warn("⚠️ Failed to publish Permission migration/config. You may need to run: php artisan vendor:publish --provider=\"" . self::PROVIDER_PERMISSION . "\" --tag=migrations --force");
+            $this->warn("⚠️ Failed to publish Permission migration/config. You may need to run: php artisan vendor:publish --provider=\"" . self::PROVIDER_PERMISSION . "\" --force");
         }
 
         // Optionally clear config cache
