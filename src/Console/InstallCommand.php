@@ -17,22 +17,32 @@ class InstallCommand extends Command
         $this->info("🚀 Installing Starter Package...");
 
         try {
-            $this->installNova();
-            $this->installTinyMCE();
-            $this->installMediaLibrary();
-            $this->installOptionalFeatures();
-            $this->runMigrations();
+                $features = $this->argument('features') ?? [];
 
-            $this->info("🎉 Starter Package installation complete!");
-            $this->newLine();
-            $this->info("Next steps:");
-            $this->line("1️⃣ Generate Nova User resource: php artisan nova:resource User");
-            $this->line("2️⃣ Create your first Nova user: php artisan nova:user");
+                // If no features were passed, or the caller explicitly asked for "all" or "core",
+                // run the full/core installers. Otherwise skip the core installers and only
+                // run the requested feature installers (e.g. "permission").
+                if (empty($features) || in_array('all', $features, true) || in_array('core', $features, true)) {
+                    $this->installNova();
+                    $this->installTinyMCE();
+                    $this->installMediaLibrary();
+                } else {
+                    $this->info("\u2139\ufe0f Skipping core installers (Nova, TinyMCE, MediaLibrary). Installing requested features: " . implode(', ', $features));
+                }
 
-            return Command::SUCCESS;
-        } catch (\Exception $e) {
-            $this->error("❌ Installation failed: {$e->getMessage()}");
-            return Command::FAILURE;
+                $this->installOptionalFeatures();
+                $this->runMigrations();
+
+                $this->info("🎉 Starter Package installation complete!");
+                $this->newLine();
+                $this->info("Next steps:");
+                $this->line("1️⃣ Generate Nova User resource: php artisan nova:resource User");
+                $this->line("2️⃣ Create your first Nova user: php artisan nova:user");
+
+                return Command::SUCCESS;
+            } catch (\Exception $e) {
+                $this->error("❌ Installation failed: {$e->getMessage()}");
+                return Command::FAILURE;
         }
     }
 
@@ -126,10 +136,38 @@ class InstallCommand extends Command
             $this->line("✔ Spatie Permission already present.");
         }
 
+        // Publish the package migrations (so we can migrate only those files)
+        $this->call('vendor:publish', [
+            '--provider' => 'Spatie\\Permission\\PermissionServiceProvider',
+            '--tag' => 'migrations',
+            '--force' => true,
+        ]);
+
         // Copy package stubs into the application (models, Nova resources)
         $this->publishPermissionStubs();
 
-        $this->info("✅ Spatie Permission installed (package required + stubs published).");
+        // Run only the published permission migrations (don't run global migrate unless necessary)
+        $migrationPatterns = [
+            database_path('migrations/*permission*.php'),
+            database_path('migrations/*create_permission*.php'),
+            database_path('migrations/*create_permission_tables*.php'),
+        ];
+
+        $found = false;
+        foreach ($migrationPatterns as $pattern) {
+            foreach (glob($pattern) as $file) {
+                $found = true;
+                // run migrate for this specific migration file path relative to project root
+                $relativePath = str_replace(base_path() . '/', '', $file);
+                $this->runArtisanCommand(['migrate', '--path=' . $relativePath, '--force']);
+            }
+        }
+
+        if (! $found) {
+            $this->warn("\u26a0\ufe0f No permission migrations were published — nothing to migrate.");
+        }
+
+        $this->info("✅ Spatie Permission installed (package required + stubs published + migrations run).");
     }
 
     protected function publishPermissionStubs(): void

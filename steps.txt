@@ -2,6 +2,8 @@ steps:
 
 composer config repositories.nova '{"type": "composer", "url": "https://nova.laravel.com"}'
 composer config http-basic.nova.laravel.com email password
+
+
 composer config repositories.starter-kit vcs git@github.com:itskrayem/starter-package.git
 composer require itskrayem/starter-package:dev-main
 php artisan starter:install
