@@ -109,11 +109,13 @@ class InstallCommand extends Command
 
         if (!$this->isPackageInstalled('spatie/laravel-medialibrary')) {
             $this->runComposerCommand(['require', 'spatie/laravel-medialibrary']);
+            // Ensure Laravel discovers the package before publishing
+            $this->runArtisanCommand(['package:discover']);
         } else {
             $this->line("✔ Spatie MediaLibrary already installed.");
         }
 
-        // Publish MediaLibrary migration using the correct tag first, then fallback
+        // Always try to publish the migration after install/discover
         try {
             $this->call('vendor:publish', [
                 '--provider' => self::PROVIDER_MEDIALIBRARY,
@@ -122,16 +124,7 @@ class InstallCommand extends Command
             ]);
             $this->info("✅ Published MediaLibrary migrations with tag: medialibrary-migrations");
         } catch (\Exception $e) {
-            $this->warn("⚠️ Failed to publish with tag. Trying provider-only...");
-            try {
-                $this->call('vendor:publish', [
-                    '--provider' => self::PROVIDER_MEDIALIBRARY,
-                    '--force' => true,
-                ]);
-                $this->info("✅ Published MediaLibrary resources via provider.");
-            } catch (\Exception $e2) {
-                $this->warn("⚠️ Failed to publish MediaLibrary migrations. You may need to run: php artisan vendor:publish --provider=\"" . self::PROVIDER_MEDIALIBRARY . "\" --force");
-            }
+            $this->warn("⚠️ Failed to publish MediaLibrary migrations. You may need to run: php artisan vendor:publish --provider=\"" . self::PROVIDER_MEDIALIBRARY . "\" --tag=medialibrary-migrations --force");
         }
     }
 
@@ -156,37 +149,27 @@ class InstallCommand extends Command
 
         if (!$this->isPackageInstalled('spatie/laravel-permission')) {
             $this->runComposerCommand(['require', 'spatie/laravel-permission']);
+            $this->runArtisanCommand(['package:discover']);
         } else {
             $this->line("✔ Spatie Permission already present.");
         }
 
-        // Publish permission migrations
-        $tags = ['permission-migrations', 'migrations'];
-        $published = false;
-        foreach ($tags as $tag) {
-            try {
-                $this->call('vendor:publish', [
-                    '--provider' => self::PROVIDER_PERMISSION,
-                    '--tag' => $tag,
-                    '--force' => true,
-                ]);
-                $this->info("✅ Published Spatie Permission migrations with tag: {$tag}");
-                $published = true;
-                break;
-            } catch (\Exception $e) {
-                // Continue to next tag
-            }
+        // Always publish migration and config after install/discover
+        try {
+            $this->call('vendor:publish', [
+                '--provider' => self::PROVIDER_PERMISSION,
+                '--force' => true,
+            ]);
+            $this->info("✅ Published Spatie Permission migration and config.");
+        } catch (\Exception $e) {
+            $this->warn("⚠️ Failed to publish Permission migration/config. You may need to run: php artisan vendor:publish --provider=\"" . self::PROVIDER_PERMISSION . "\" --force");
         }
-        if (!$published) {
-            try {
-                $this->call('vendor:publish', [
-                    '--provider' => self::PROVIDER_PERMISSION,
-                    '--force' => true,
-                ]);
-                $this->info("✅ Published Spatie Permission migrations via provider.");
-            } catch (\Exception $e2) {
-                $this->warn("⚠️ Failed to publish permission migrations. You may need to run: php artisan vendor:publish --provider=\"" . self::PROVIDER_PERMISSION . "\" --force");
-            }
+
+        // Optionally clear config cache
+        try {
+            $this->runArtisanCommand(['config:clear']);
+        } catch (\Exception $e) {
+            // ignore
         }
 
         $this->publishPermissionStubs();
