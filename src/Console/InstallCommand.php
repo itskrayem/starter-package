@@ -137,22 +137,15 @@ class InstallCommand extends Command
             $this->line("✔ Spatie MediaLibrary already installed.");
         }
 
-        // Try to use MediaLibrary's install command, fallback to manual publishing
-        try {
-            $this->runArtisanCommand(['medialibrary:install']);
-            $this->info("✅ Used medialibrary:install command");
-        } catch (\Exception $e) {
-            // Fallback to manual publishing if install command doesn't exist
-            if (!$this->mediaTableExists()) {
-                $this->call('vendor:publish', [
-                    '--provider' => 'Spatie\MediaLibrary\MediaLibraryServiceProvider',
-                    '--tag' => 'migrations',
-                    '--force' => true,
-                ]);
-                $this->info("✅ Published MediaLibrary migrations manually");
-            } else {
-                $this->info("✅ MediaLibrary migrations already exist");
-            }
+        // Always try to publish migrations if they don't exist
+        if (!$this->mediaTableExists()) {
+            // MediaLibrary doesn't have an install command, just publish migrations directly
+            $this->call('vendor:publish', [
+                '--provider' => 'Spatie\MediaLibrary\MediaLibraryServiceProvider'
+            ]);
+            $this->info("✅ Published MediaLibrary resources (including migrations)");
+        } else {
+            $this->info("✅ MediaLibrary migrations already exist");
         }
 
         $this->info("✅ MediaLibrary setup complete.");
