@@ -14,25 +14,13 @@ class InstallCommand extends Command
 
     public function handle(): int
     {
-        $this->info("🚀 Starting Starter Package installation...");
-
-        // 1️⃣ Ask for Nova credentials first
-        $this->configureNovaCredentials();
+        $this->info("🚀 Installing Starter Package...");
 
         try {
-            // 2️⃣ Install Laravel Nova
             $this->installNova();
-
-            // 3️⃣ Install TinyMCE
             $this->installTinyMCE();
-
-            // 4️⃣ Install Spatie MediaLibrary
             $this->installMediaLibrary();
-
-            // 5️⃣ Install optional features (e.g., permission)
             $this->installOptionalFeatures();
-
-            // 6️⃣ Run migrations
             $this->runMigrations();
 
             $this->info("🎉 Starter Package installation complete!");
@@ -42,51 +30,9 @@ class InstallCommand extends Command
             $this->line("2️⃣ Create your first Nova user: php artisan nova:user");
 
             return Command::SUCCESS;
-
         } catch (\Exception $e) {
             $this->error("❌ Installation failed: {$e->getMessage()}");
             return Command::FAILURE;
-        }
-    }
-
-    /**
-     * Prompt user for Nova credentials and configure them before installing Nova.
-     */
-    protected function configureNovaCredentials(): void
-    {
-        $this->info("🔐 Nova credentials setup");
-
-        $email = $this->ask('📧 Enter your Nova account email');
-        $password = $this->secret('🔑 Enter your Nova account password or API token');
-
-        $scope = $this->choice(
-            'Where do you want to save these credentials?',
-            ['local (project only)', 'global (all projects)'],
-            0
-        );
-
-        $args = ['composer', 'config'];
-        if (str_starts_with($scope, 'global')) {
-            $args[] = '--global';
-        }
-
-        $args = array_merge($args, [
-            'http-basic.nova.laravel.com',
-            $email,
-            $password,
-        ]);
-
-        $process = new Process($args);
-        $process->setTimeout(null);
-        $process->run(function ($type, $buffer) {
-            $this->output->write($buffer);
-        });
-
-        if ($process->isSuccessful()) {
-            $this->info("✅ Nova credentials configured successfully.");
-        } else {
-            $this->error("❌ Failed to configure Nova credentials.");
-            exit(1);
         }
     }
 
@@ -99,6 +45,7 @@ class InstallCommand extends Command
             return;
         }
 
+        // Run Composer require (assumes user already configured Nova credentials)
         $this->runComposerCommand(['require', 'laravel/nova:^5.0']);
 
         $this->call('vendor:publish', [
@@ -113,9 +60,7 @@ class InstallCommand extends Command
     {
         $this->info("📦 Installing TinyMCE...");
 
-        if (!class_exists(\Tinymce\Tinymce::class)) {
-            $this->runComposerCommand(['require', 'tinymce/tinymce']);
-        }
+        $this->runComposerCommand(['require', 'tinymce/tinymce:^7.0']);
 
         $this->info("✅ TinyMCE installed.");
     }
@@ -125,10 +70,9 @@ class InstallCommand extends Command
         $this->info("📦 Setting up Spatie MediaLibrary...");
 
         if (!class_exists(\Spatie\MediaLibrary\MediaCollections\Models\Media::class)) {
-            $this->runComposerCommand(['require', 'spatie/laravel-medialibrary']);
+            $this->runComposerCommand(['require', 'spatie/laravel-medialibrary:^11.0']);
         }
 
-        // Publish migrations if they do not exist
         $migrationFiles = database_path('migrations/*_create_media_table.php');
         if (empty(File::glob($migrationFiles))) {
             $this->call('vendor:publish', [
@@ -148,7 +92,7 @@ class InstallCommand extends Command
             if ($feature === 'permission') {
                 $this->installPermission();
             } else {
-                $this->warn("⚠ Unknown feature: {$feature}");
+                $this->warn("⚠️ Unknown feature: {$feature}");
             }
         }
     }
@@ -158,7 +102,7 @@ class InstallCommand extends Command
         $this->info("📦 Installing Spatie Permission...");
 
         if (!class_exists(\Spatie\Permission\Models\Permission::class)) {
-            $this->runComposerCommand(['require', 'spatie/laravel-permission']);
+            $this->runComposerCommand(['require', 'spatie/laravel-permission:^6.0']);
         }
 
         $migrationFiles = database_path('migrations/*_create_permission_tables.php');
@@ -170,6 +114,7 @@ class InstallCommand extends Command
             ]);
         }
 
+        // Publish stubs
         $this->publishPermissionStubs();
 
         $this->info("✅ Spatie Permission installed.");
@@ -186,7 +131,7 @@ class InstallCommand extends Command
                 File::copyDirectory($source, $destination);
                 $this->info("✅ Published permission stubs: {$folder}");
             } else {
-                $this->warn("⚠ Stub folder not found: {$source}");
+                $this->warn("⚠️ Stub folder not found: {$source}");
             }
         }
     }
@@ -200,12 +145,13 @@ class InstallCommand extends Command
     protected function runComposerCommand(array $command): void
     {
         $process = new Process(array_merge(['composer'], $command));
-        $process->setTimeout(600); // extended timeout
-        try {
-            $process->mustRun();
-            $this->line($process->getOutput());
-        } catch (ProcessFailedException $exception) {
-            throw new \Exception("Composer command failed: " . $exception->getMessage());
+        $process->setTimeout(600);
+        $process->run(function ($type, $buffer) {
+            $this->output->write($buffer);
+        });
+
+        if (!$process->isSuccessful()) {
+            throw new \Exception("Composer command failed: " . $process->getErrorOutput());
         }
     }
 }
