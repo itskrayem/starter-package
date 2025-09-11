@@ -12,28 +12,37 @@ class InstallCommand extends Command
     protected $signature = 'starter:install {features?*}';
     protected $description = 'Install starter package: Nova, MediaLibrary, and optional features';
 
-    public function handle(): int
-    {
-        $this->info("🚀 Installing Starter Package...");
+    protected function installDependencies(): void
+{
+    $this->info("Installing required Composer dependencies...");
 
-        try {
-            $this->installNova();
-            $this->installMediaLibrary();
-            $this->installOptionalFeatures();
-            $this->runMigrations();
+    $this->runComposerCommand(['require', 'spatie/laravel-medialibrary']);
+    $this->runComposerCommand(['require', 'tinymce/tinymce']);
+}
 
-            $this->info("🎉 Starter Package installation complete!");
-            $this->newLine();
-            $this->info("Next steps:");
-            $this->line("1. Generate Nova User resource: php artisan nova:resource User");
-            $this->line("2. Create your first Nova user: php artisan nova:user");
+public function handle(): int
+{
+    $this->info("🚀 Installing Starter Package...");
 
-            return Command::SUCCESS;
-        } catch (\Exception $e) {
-            $this->error("❌ Installation failed: {$e->getMessage()}");
-            return Command::FAILURE;
-        }
+    try {
+        $this->installDependencies(); // <-- Add this line
+        $this->installNova();
+        $this->installMediaLibrary();
+        $this->installOptionalFeatures();
+        $this->runMigrations();
+
+        $this->info("🎉 Starter Package installation complete!");
+        $this->newLine();
+        $this->info("Next steps:");
+        $this->line("1. Generate Nova User resource: php artisan nova:resource User");
+        $this->line("2. Create your first Nova user: php artisan nova:user");
+
+        return Command::SUCCESS;
+    } catch (\Exception $e) {
+        $this->error("❌ Installation failed: {$e->getMessage()}");
+        return Command::FAILURE;
     }
+}
 
     protected function installNova(): void
     {
