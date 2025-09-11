@@ -28,7 +28,7 @@ class InstallCommand extends Command
                 $this->info("ℹ️ Skipping core components. Installing features: " . implode(', ', $features));
             }
 
-            $this->installOptionalFeatures($features);
+            $this->installOptionalFeatures();
             $this->runMigrations();
             $this->displayCompletionMessage();
 
@@ -67,18 +67,17 @@ class InstallCommand extends Command
     {
         $this->info("Installing Laravel Nova...");
 
-        if ($this->isPackageInstalled('laravel/nova')) {
-            $this->line("✔ Laravel Nova already installed.");
-        } else {
+        if (!$this->isPackageInstalled('laravel/nova')) {
             $this->runComposerCommand(['config', 'repositories.nova', 'composer', 'https://nova.laravel.com']);
             $this->runComposerCommand(['require', 'laravel/nova']);
+        } else {
+            $this->line("✔ Laravel Nova already installed.");
         }
 
-        // Run nova:install if available
         try {
             $this->runArtisanCommand(['nova:install']);
             $this->info("✅ Used nova:install command");
-        } catch (\Exception) {
+        } catch (\Exception $e) {
             $this->info("ℹ️ Skipped nova:install (command unavailable or already run)");
         }
 
@@ -114,31 +113,21 @@ class InstallCommand extends Command
             $this->line("✔ Spatie MediaLibrary already installed.");
         }
 
-        // Force publish migrations
-        if (!$this->mediaMigrationsExist()) {
-            $this->call('vendor:publish', [
-                '--provider' => self::PROVIDER_MEDIALIBRARY,
-                '--tag' => 'media-library-migrations',
-                '--force' => true,
-            ]);
-
-            if ($this->mediaMigrationsExist()) {
-                $this->info("✅ MediaLibrary migrations published successfully.");
-            } else {
-                $this->warn("⚠️ MediaLibrary migrations still not found! Run: php artisan vendor:publish --provider=\"" . self::PROVIDER_MEDIALIBRARY . "\" --tag=media-library-migrations --force");
-            }
-        } else {
-            $this->info("✅ MediaLibrary migrations already exist.");
+        // Run MediaLibrary installer to create migrations
+        try {
+            $this->runArtisanCommand(['medialibrary:install']);
+            $this->info("✅ MediaLibrary migrations installed successfully.");
+        } catch (\Exception $e) {
+            $this->warn("⚠️ MediaLibrary install command failed. You may need to run: php artisan vendor:publish --provider=\"Spatie\\MediaLibrary\\MediaLibraryServiceProvider\" --tag=media-library-migrations --force");
         }
-
-        $this->info("✅ MediaLibrary setup complete.");
     }
 
     // -------------------------
     // Optional Features
     // -------------------------
-    protected function installOptionalFeatures(array $features): void
+    protected function installOptionalFeatures(): void
     {
+        $features = $this->argument('features') ?? [];
         foreach ($features as $feature) {
             if ($feature === 'permission') {
                 $this->installPermission();
@@ -158,21 +147,16 @@ class InstallCommand extends Command
             $this->line("✔ Spatie Permission already present.");
         }
 
-        // Force publish migrations
-        if (!$this->permissionMigrationsExist()) {
+        // Publish permission migrations
+        try {
             $this->call('vendor:publish', [
                 '--provider' => self::PROVIDER_PERMISSION,
-                '--tag' => 'migrations',
+                '--tag' => 'permission-migrations',
                 '--force' => true,
             ]);
-
-            if ($this->permissionMigrationsExist()) {
-                $this->info("✅ Permission migrations published successfully.");
-            } else {
-                $this->warn("⚠️ Permission migrations still not found! Run: php artisan vendor:publish --provider=\"" . self::PROVIDER_PERMISSION . "\" --tag=migrations --force");
-            }
-        } else {
-            $this->info("✅ Permission migrations already exist.");
+            $this->info("✅ Published Spatie Permission migrations successfully.");
+        } catch (\Exception $e) {
+            $this->warn("⚠️ Failed to publish permission migrations. Run manually if needed.");
         }
 
         $this->publishPermissionStubs();
@@ -202,21 +186,11 @@ class InstallCommand extends Command
     }
 
     // -------------------------
-    // Helper Methods
+    // Helpers
     // -------------------------
     protected function isPackageInstalled(string $packageName): bool
     {
         return is_dir($this->basePath("vendor/{$packageName}"));
-    }
-
-    protected function mediaMigrationsExist(): bool
-    {
-        return (bool) glob($this->databasePath('migrations/*_create_media_table.php'));
-    }
-
-    protected function permissionMigrationsExist(): bool
-    {
-        return (bool) glob($this->databasePath('migrations/*_create_permission_tables.php'));
     }
 
     protected function basePath(string $path = ''): string
