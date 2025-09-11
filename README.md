@@ -60,11 +60,6 @@ This installs **only** the permission system:
 - ✅ Database seeder with pre-configured roles and permissions
 - ❌ Skips Nova, TinyMCE, and MediaLibrary
 
-### Install Multiple Features
-
-```bash
-php artisan starter:install permission feature2 feature3
-```
 
 ## What Gets Installed
 
