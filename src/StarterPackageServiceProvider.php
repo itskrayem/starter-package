@@ -26,6 +26,7 @@ class StarterPackageServiceProvider extends ServiceProvider
                 $this->publishes([
                     $stubsPath . '/models' => app_path('Models'),
                     $stubsPath . '/nova'   => app_path('Nova'),
+                    $stubsPath . '/seeders' => database_path('seeders'),
                 ], 'starter-package-stubs');
             }
         }

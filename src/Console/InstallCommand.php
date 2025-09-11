@@ -160,11 +160,14 @@ class InstallCommand extends Command
 
     protected function publishPermissionStubs(): void
     {
-        $stubFolders = ['models', 'nova'];
+        $stubFolders = [
+            'models' => $this->appPath('Models'),
+            'nova' => $this->appPath('Nova'),
+            'seeders' => $this->databasePath('seeders')
+        ];
         
-        foreach ($stubFolders as $folder) {
+        foreach ($stubFolders as $folder => $destination) {
             $source = __DIR__ . '/../stubs/' . $folder;
-            $destination = $this->appPath($folder);
             
             if (is_dir($source)) {
                 $this->ensureDirectoryExists($destination);
