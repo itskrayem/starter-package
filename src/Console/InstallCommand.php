@@ -161,6 +161,8 @@ class InstallCommand extends Command
         // Optionally clear config cache
         try {
             $this->runArtisanCommand(['config:clear']);
+            // Also clear config in current process
+            config()->clear();
         } catch (\Exception $e) {
             // ignore
         }
@@ -168,6 +170,7 @@ class InstallCommand extends Command
         $this->publishPermissionStubs();
 
         $this->info("✅ Spatie Permission installed (package + migrations + stubs).");
+        $this->info("ℹ️ Note: Run 'php artisan migrate' manually if permission tables weren't created.");
     }
 
     protected function publishPermissionStubs(): void
@@ -216,7 +219,17 @@ class InstallCommand extends Command
 
     protected function runMigrations(): void
     {
-        $this->call('migrate', ['--force' => true]);
+        // Check if permission was installed in this run
+        $features = $this->argument('features') ?? [];
+        $hasPermission = in_array('permission', $features, true) || empty($features);
+
+        if ($hasPermission && $this->isPackageInstalled('spatie/laravel-permission')) {
+            // Run migration in separate process to ensure fresh config is loaded
+            $this->runArtisanCommand(['migrate', '--force']);
+        } else {
+            // Normal migration
+            $this->call('migrate', ['--force' => true]);
+        }
         $this->info("✅ Database migrated.");
     }
 
