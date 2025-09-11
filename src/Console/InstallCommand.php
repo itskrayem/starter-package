@@ -10,7 +10,7 @@ use Symfony\Component\Process\Process;
 class InstallCommand extends Command
 {
     protected $signature = 'starter:install {features?*}';
-    protected $description = 'Install Starter Package: Nova, TinyMCE, MediaLibrary, and optional features';
+    protected $description = 'Install starter package: Nova, MediaLibrary, TinyMCE, and optional features';
 
     public function handle(): int
     {
@@ -36,16 +36,25 @@ class InstallCommand extends Command
         }
     }
 
+    // -------------------------
+    // Nova
+    // -------------------------
     protected function installNova(): void
     {
-        $this->info("📦 Installing Laravel Nova...");
+        $this->info("Installing Laravel Nova...");
 
         if (class_exists(\Laravel\Nova\Nova::class)) {
-            $this->line("✔ Laravel Nova is already installed.");
+            $this->line("✅ Laravel Nova is already installed.");
             return;
         }
 
-        // Run Composer require (assumes user already configured Nova credentials)
+        $this->runComposerCommand([
+            'config',
+            'repositories.nova',
+            'composer',
+            'https://nova.laravel.com'
+        ]);
+
         $this->runComposerCommand(['require', 'laravel/nova:^5.0']);
 
         $this->call('vendor:publish', [
@@ -56,28 +65,36 @@ class InstallCommand extends Command
         $this->info("✅ Laravel Nova installed.");
     }
 
+    // -------------------------
+    // TinyMCE
+    // -------------------------
     protected function installTinyMCE(): void
     {
-        $this->info("📦 Installing TinyMCE...");
+        $this->info("Installing TinyMCE...");
 
-        $this->runComposerCommand(['require', 'tinymce/tinymce:^7.0']);
+        if (!class_exists(\TinyMCE\TinyMCE::class) && !is_dir(base_path('vendor/tinymce/tinymce'))) {
+            $this->runComposerCommand(['require', 'tinymce/tinymce']);
+        }
 
         $this->info("✅ TinyMCE installed.");
     }
 
+    // -------------------------
+    // MediaLibrary
+    // -------------------------
     protected function installMediaLibrary(): void
     {
-        $this->info("📦 Setting up Spatie MediaLibrary...");
+        $this->info("Setting up Spatie MediaLibrary...");
 
         if (!class_exists(\Spatie\MediaLibrary\MediaCollections\Models\Media::class)) {
-            $this->runComposerCommand(['require', 'spatie/laravel-medialibrary:^11.0']);
+            $this->runComposerCommand(['require', 'spatie/laravel-medialibrary']);
         }
 
-        $migrationFiles = database_path('migrations/*_create_media_table.php');
-        if (empty(File::glob($migrationFiles))) {
+        $migrationFiles = glob(database_path('migrations/*_create_media_table.php'));
+        if (empty($migrationFiles)) {
             $this->call('vendor:publish', [
                 '--provider' => 'Spatie\MediaLibrary\MediaLibraryServiceProvider',
-                '--tag' => 'laravel-medialibrary-migrations',
+                '--tag' => 'migrations',
                 '--force' => true,
             ]);
         }
@@ -85,6 +102,9 @@ class InstallCommand extends Command
         $this->info("✅ MediaLibrary setup complete.");
     }
 
+    // -------------------------
+    // Optional Features
+    // -------------------------
     protected function installOptionalFeatures(): void
     {
         $features = $this->argument('features') ?? [];
@@ -99,14 +119,14 @@ class InstallCommand extends Command
 
     protected function installPermission(): void
     {
-        $this->info("📦 Installing Spatie Permission...");
+        $this->info("Installing Spatie Permission...");
 
         if (!class_exists(\Spatie\Permission\Models\Permission::class)) {
-            $this->runComposerCommand(['require', 'spatie/laravel-permission:^6.0']);
+            $this->runComposerCommand(['require', 'spatie/laravel-permission']);
         }
 
-        $migrationFiles = database_path('migrations/*_create_permission_tables.php');
-        if (empty(File::glob($migrationFiles))) {
+        $migrationFiles = glob(database_path('migrations/*_create_permission_tables.php'));
+        if (empty($migrationFiles)) {
             $this->call('vendor:publish', [
                 '--provider' => 'Spatie\Permission\PermissionServiceProvider',
                 '--tag' => 'laravel-permission-migrations',
@@ -114,7 +134,6 @@ class InstallCommand extends Command
             ]);
         }
 
-        // Publish stubs
         $this->publishPermissionStubs();
 
         $this->info("✅ Spatie Permission installed.");
@@ -136,22 +155,29 @@ class InstallCommand extends Command
         }
     }
 
+    // -------------------------
+    // Migrations
+    // -------------------------
     protected function runMigrations(): void
     {
         $this->call('migrate', ['--force' => true]);
         $this->info("✅ Database migrated.");
     }
 
+    // -------------------------
+    // Helpers
+    // -------------------------
     protected function runComposerCommand(array $command): void
     {
         $process = new Process(array_merge(['composer'], $command));
         $process->setTimeout(600);
-        $process->run(function ($type, $buffer) {
-            $this->output->write($buffer);
-        });
 
-        if (!$process->isSuccessful()) {
-            throw new \Exception("Composer command failed: " . $process->getErrorOutput());
+        try {
+            $process->mustRun(function ($type, $buffer) {
+                $this->output->write($buffer);
+            });
+        } catch (ProcessFailedException $exception) {
+            throw new \Exception("Composer command failed: " . $exception->getMessage());
         }
     }
 }
