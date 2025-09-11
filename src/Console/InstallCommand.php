@@ -113,38 +113,24 @@ class InstallCommand extends Command
             $this->line("✔ Spatie MediaLibrary already installed.");
         }
 
-        // Try MediaLibrary installer command first
+        // Publish MediaLibrary migration using the correct tag first, then fallback
         try {
-            $this->runArtisanCommand(['media-library:install']);
-            $this->info("✅ MediaLibrary migrations installed successfully.");
+            $this->call('vendor:publish', [
+                '--provider' => self::PROVIDER_MEDIALIBRARY,
+                '--tag' => 'medialibrary-migrations',
+                '--force' => true,
+            ]);
+            $this->info("✅ Published MediaLibrary migrations with tag: medialibrary-migrations");
         } catch (\Exception $e) {
-            $this->warn("⚠️ MediaLibrary install command failed. Attempting to publish migrations manually...");
-            $tags = ['media-library-migrations', 'medialibrary-migrations', 'migrations'];
-            $published = false;
-            foreach ($tags as $tag) {
-                try {
-                    $this->call('vendor:publish', [
-                        '--provider' => self::PROVIDER_MEDIALIBRARY,
-                        '--tag' => $tag,
-                        '--force' => true,
-                    ]);
-                    $this->info("✅ Published MediaLibrary migrations with tag: {$tag}");
-                    $published = true;
-                    break;
-                } catch (\Exception $e2) {
-                    // Continue to next tag
-                }
-            }
-            if (!$published) {
-                try {
-                    $this->call('vendor:publish', [
-                        '--provider' => self::PROVIDER_MEDIALIBRARY,
-                        '--force' => true,
-                    ]);
-                    $this->info("✅ Published MediaLibrary resources via provider.");
-                } catch (\Exception $e3) {
-                    $this->warn("⚠️ Failed to publish MediaLibrary migrations. You may need to run: php artisan vendor:publish --provider=\"" . self::PROVIDER_MEDIALIBRARY . "\" --force");
-                }
+            $this->warn("⚠️ Failed to publish with tag. Trying provider-only...");
+            try {
+                $this->call('vendor:publish', [
+                    '--provider' => self::PROVIDER_MEDIALIBRARY,
+                    '--force' => true,
+                ]);
+                $this->info("✅ Published MediaLibrary resources via provider.");
+            } catch (\Exception $e2) {
+                $this->warn("⚠️ Failed to publish MediaLibrary migrations. You may need to run: php artisan vendor:publish --provider=\"" . self::PROVIDER_MEDIALIBRARY . "\" --force");
             }
         }
     }
