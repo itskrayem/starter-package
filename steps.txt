@@ -7,6 +7,4 @@ composer config http-basic.nova.laravel.com email password
 composer config repositories.starter-kit vcs git@github.com:itskrayem/starter-package.git
 composer require itskrayem/starter-package:dev-main
 php artisan starter:install
-php artisan nova:resource User        
-php artisan nova:user
 php artisan starter:install permission
