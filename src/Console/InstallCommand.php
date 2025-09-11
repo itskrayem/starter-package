@@ -43,11 +43,6 @@ class InstallCommand extends Command
     {
         $this->info("Installing Laravel Nova...");
 
-        if (class_exists(\Laravel\Nova\Nova::class)) {
-            $this->line("✅ Laravel Nova is already installed.");
-            return;
-        }
-
         $this->runComposerCommand([
             'config',
             'repositories.nova',
