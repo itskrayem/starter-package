@@ -29,9 +29,21 @@ class StarterWizardCommand extends Command
             hint: 'Core and Permissions are always installed.'
         );
 
-        // Always install core and permissions
-        $this->call('starter:install');
-        $this->call('starter:permissions');
+        // Check if core is already installed
+        $coreInstalled = app(\ItsKrayem\StarterPackage\Console\InstallCommand::class)->isCoreInstalled();
+        if ($coreInstalled) {
+            $this->info('✔ Core (Nova, MediaLibrary, TinyMCE) already installed.');
+        } else {
+            $this->call('starter:install');
+        }
+
+        // Check if permissions are already installed
+        $permissionsInstalled = app(\ItsKrayem\StarterPackage\Console\PermissionsCommand::class)->isPermissionsInstalled();
+        if ($permissionsInstalled) {
+            $this->info('✔ Permissions already installed.');
+        } else {
+            $this->call('starter:permissions');
+        }
 
         // Install page if selected
         if (in_array('page', $selected)) {

@@ -160,4 +160,9 @@ class PermissionsCommand extends Command
             throw new \Exception("Artisan command failed: " . $exception->getMessage());
         }
     }
+
+    public function isPermissionsInstalled(): bool
+    {
+        return $this->isPackageInstalled('spatie/laravel-permission');
+    }
 }

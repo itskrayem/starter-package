@@ -192,4 +192,11 @@ class InstallCommand extends Command
             throw new \Exception("Artisan command failed: " . $exception->getMessage());
         }
     }
+
+    public function isCoreInstalled(): bool
+    {
+        return $this->isPackageInstalled('laravel/nova')
+            && $this->isPackageInstalled('spatie/laravel-medialibrary')
+            && $this->isPackageInstalled('murdercode/nova4-tinymce-editor');
+    }
 }
