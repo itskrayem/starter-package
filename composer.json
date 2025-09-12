@@ -24,8 +24,8 @@
   },
   "repositories": [
     {
-      "type": "vcs",
-      "url": "git@github.com:itskrayem/starter-package.git"
+      "type": "git",
+      "url": "https://github.com/itskrayem/starter-package.git"
     }
   ],
   "scripts": {

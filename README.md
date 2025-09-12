@@ -23,9 +23,11 @@ Follow these steps in **chronological order**:
 
 #### Step 1: Install the Package
 ```bash
-composer config repositories.starter-kit vcs git@github.com:itskrayem/starter-package.git
+composer config repositories.starter-kit vcs https://github.com/itskrayem/starter-package.git
 composer require itskrayem/starter-package:dev-main
 ```
+
+> **Note**: Using HTTPS URL for better compatibility. If you prefer SSH and have it configured, you can replace `https://github.com/itskrayem/starter-package.git` with `git@github.com:itskrayem/starter-package.git`.
 
 #### Step 2: Configure User Model (BEFORE running commands)
 Edit `app/Models/User.php` to include the HasRoles trait:

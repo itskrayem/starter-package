@@ -34,7 +34,7 @@ class PageCommand extends Command
         ];
 
         foreach ($pageFiles as $source => $destination) {
-            $sourcePath = __DIR__ . '/../stubs/' . $source;
+            $sourcePath = __DIR__ . '/../../stubs/' . $source;
 
             if (file_exists($sourcePath)) {
                 // Ensure destination directory exists
