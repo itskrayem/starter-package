@@ -73,10 +73,10 @@ class InstallCommand extends Command
             $password = $this->secret('Enter your Laravel Nova password:');
 
             // Configure Nova repository locally (not globally)
-            $this->runComposerCommand(['config', 'repositories.nova', '{"type": "composer", "url": "https://nova.laravel.com"}', '--no-global']);
+            $this->runComposerCommand(['config', 'repositories.nova', '{"type": "composer", "url": "https://nova.laravel.com"}']);
 
-            // Set authentication locally (not globally)
-            $this->runComposerCommand(['config', 'http-basic.nova.laravel.com', $email, $password, '--no-global']);
+            // Set authentication for Nova (exact command: composer config http-basic.nova.laravel.com email password)
+            $this->runComposerCommand(['config', 'http-basic.nova.laravel.com', $email, $password]);
 
             // Require Nova package
             $this->runComposerCommand(['require', 'laravel/nova']);
