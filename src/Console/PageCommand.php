@@ -62,8 +62,17 @@ class PageCommand extends Command
 
     public function isPagesInstalled(): bool
     {
-        return file_exists($this->appPath('Models/Page.php')) 
-            || file_exists($this->appPath('Nova/Page.php'))
-            || file_exists($this->appPath('Policies/PagePolicy.php'));
+        $modelPath = $this->appPath('Models/Page.php');
+        $novaPath = $this->appPath('Nova/Page.php');
+        $policyPath = $this->appPath('Policies/PagePolicy.php');
+        
+        $modelExists = file_exists($modelPath);
+        $novaExists = file_exists($novaPath);
+        $policyExists = file_exists($policyPath);
+        
+        // Simple debug output
+        echo "Page check - Model: " . ($modelExists ? 'EXISTS' : 'NOT') . ", Nova: " . ($novaExists ? 'EXISTS' : 'NOT') . ", Policy: " . ($policyExists ? 'EXISTS' : 'NOT') . "\n";
+        
+        return $modelExists || $novaExists || $policyExists;
     }
 }

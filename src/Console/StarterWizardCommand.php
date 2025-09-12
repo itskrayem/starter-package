@@ -33,8 +33,13 @@ class StarterWizardCommand extends Command
             hint: 'Core and Permissions are always installed.'
         );
 
+        // Debug: Show what was selected
+        $this->info('📋 Selected features: ' . implode(', ', $selected));
+        $this->info('🔍 Checking for "page" in selected: ' . (in_array('page', $selected) ? 'YES' : 'NO'));
+
         // Check if core is already installed
-        $coreInstalled = app(\ItsKrayem\StarterPackage\Console\CoreCommand::class)->isCoreInstalled();
+        $coreCommand = new \ItsKrayem\StarterPackage\Console\CoreCommand();
+        $coreInstalled = $coreCommand->isCoreInstalled();
         if ($coreInstalled) {
             $this->info('✔ Core (Nova, MediaLibrary, TinyMCE) already installed.');
         } else {
@@ -42,7 +47,8 @@ class StarterWizardCommand extends Command
         }
 
         // Check if permissions are already installed
-        $permissionsInstalled = app(\ItsKrayem\StarterPackage\Console\PermissionsCommand::class)->isPermissionsInstalled();
+        $permissionsCommand = new \ItsKrayem\StarterPackage\Console\PermissionsCommand();
+        $permissionsInstalled = $permissionsCommand->isPermissionsInstalled();
         if ($permissionsInstalled) {
             $this->info('✔ Permissions already installed.');
         } else {
@@ -52,11 +58,16 @@ class StarterWizardCommand extends Command
         // Install page if selected
         $pagesInstalled = false;
         if (in_array('page', $selected)) {
+            $this->info('🔍 Checking if page features are already installed...');
             // Check if pages are already installed
-            $pagesInstalled = app(\ItsKrayem\StarterPackage\Console\PageCommand::class)->isPagesInstalled();
+            $pageCommand = new \ItsKrayem\StarterPackage\Console\PageCommand();
+            $pagesInstalled = $pageCommand->isPagesInstalled();
+            $this->info('📋 Pages installed status: ' . ($pagesInstalled ? 'Yes' : 'No'));
+            
             if ($pagesInstalled) {
                 $this->info('✔ Page features already installed.');
             } else {
+                $this->info('📦 Installing page features...');
                 $this->call('starter:page');
             }
         }
