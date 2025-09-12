@@ -7,12 +7,12 @@ use Illuminate\Support\Facades\File;
 use Symfony\Component\Process\Exception\ProcessFailedException;
 use Symfony\Component\Process\Process;
 
-class InstallCommand extends Command
+class CoreCommand extends Command
 {
     private const PROVIDER_MEDIALIBRARY = 'Spatie\\MediaLibrary\\MediaLibraryServiceProvider';
 
-    protected $signature = 'starter:install {features?* : Optional features to install. Use "all" or "core" to install everything}';
-    protected $description = 'Install starter package components. Installs core (Nova, MediaLibrary, Nova TinyMCE Editor) by default, or specific features only.';
+    protected $signature = 'starter:core {features?* : Optional features to install. Use "all" or "core" to install everything}';
+    protected $description = 'Install core starter package components. Installs Nova, MediaLibrary, Nova TinyMCE Editor by default, or specific features only.';
 
     public function handle(): int
     {

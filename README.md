@@ -40,7 +40,7 @@ composer require itskrayem/starter-package:dev-main
 
 **Step 2: Install Core Components**
 ```bash
-php artisan starter:install
+php artisan starter:core
 ```
 This installs Laravel Nova, MediaLibrary, and Nova TinyMCE Editor. The installer will prompt for your Laravel Nova email and password if Nova is not already installed.
 
@@ -121,7 +121,7 @@ php artisan db:seed
 ## Available Commands
 
 - `php artisan starter:wizard` - Interactive wizard to select features (recommended)
-- `php artisan starter:install` - Install core components (Nova, MediaLibrary, TinyMCE)
+- `php artisan starter:core` - Install core components (Nova, MediaLibrary, TinyMCE)
 - `php artisan starter:permissions` - Install permission system
 - `php artisan starter:page` - Install page features
 

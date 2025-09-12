@@ -30,11 +30,11 @@ class StarterWizardCommand extends Command
         );
 
         // Check if core is already installed
-        $coreInstalled = app(\ItsKrayem\StarterPackage\Console\InstallCommand::class)->isCoreInstalled();
+        $coreInstalled = app(\ItsKrayem\StarterPackage\Console\CoreCommand::class)->isCoreInstalled();
         if ($coreInstalled) {
             $this->info('✔ Core (Nova, MediaLibrary, TinyMCE) already installed.');
         } else {
-            $this->call('starter:install');
+            $this->call('starter:core');
         }
 
         // Check if permissions are already installed
