@@ -19,29 +19,25 @@ A Laravel starter kit that automates the installation of Nova, Spatie MediaLibra
 
 ### Steps
 
-1. **Configure Nova repository and authentication (if using Nova):**
-    ```bash
-    composer config repositories.nova '{"type": "composer", "url": "https://nova.laravel.com"}'
-    composer config http-basic.nova.laravel.com <your-email> <your-nova-key>
-    ```
-
-2. **Add the starter package repository and install:**
+1. **Add the starter package repository and install:**
     ```bash
     composer config repositories.starter-kit vcs git@github.com:itskrayem/starter-package.git
     composer require itskrayem/starter-package:dev-main
     ```
 
-3. **Run the installer:**
+2. **Run the installer:**
     ```bash
     php artisan starter:install
     ```
+
+    The installer will automatically prompt for your Laravel Nova email and password if Nova is not already installed. Your credentials will be configured locally for this project only.
 
     To install permission features:
     ```bash
     php artisan starter:install permission
     ```
 
-4. **Run migrations and seeders:**
+3. **Run migrations and seeders:**
     ```bash
     php artisan migrate
     php artisan db:seed
