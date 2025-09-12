@@ -72,23 +72,11 @@ class DatabaseSeeder extends Seeder
 
 #### Step 4: Run Installation Commands
 
-**Option A: Interactive Wizard (Recommended)**
+**Interactive Wizard (Recommended)**
 ```bash
 php artisan starter:wizard
 ```
 The wizard will automatically install core components and permissions, then ask if you want to install page features.
-
-**Option B: Manual Installation**
-```bash
-# Install core components (Nova, MediaLibrary, TinyMCE)
-php artisan starter:core
-
-# Install permission system
-php artisan starter:permissions
-
-# Install page features (optional)
-php artisan starter:page
-```
 
 #### Step 5: Configure PermissionsSeeder (ONLY if you installed page features)
 > ⚠️ **IMPORTANT**: This step is only required if you installed page features in Step 4.
@@ -115,6 +103,28 @@ php artisan db:seed
 ```bash
 php artisan nova:user
 ```
+
+## Manual Installation (Alternative to Wizard)
+
+If you prefer to run commands individually instead of using the wizard, follow these steps:
+
+**Install Core Components**
+```bash
+php artisan starter:core
+```
+This installs Laravel Nova, MediaLibrary, and Nova TinyMCE Editor.
+
+**Install Permission System**
+```bash
+php artisan starter:permissions
+```
+This installs Spatie Permission package and publishes all related stubs.
+
+**Install Page Features (Optional)**
+```bash
+php artisan starter:page
+```
+This publishes page-related stubs. If you run this command, remember to configure PermissionsSeeder in Step 5.
 
 ## Available Commands
 
