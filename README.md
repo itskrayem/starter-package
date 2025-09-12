@@ -42,6 +42,16 @@ A Laravel starter kit that automates the installation of Nova, Spatie MediaLibra
     php artisan starter:page
     ```
 
+    **After running the page command:** Update your `database/seeders/PermissionsSeeder.php` to include permissions for pages by adding 'Pages' to the collection:
+    ```php
+    $collection = collect([
+        'Users',
+        'Roles',
+        'Permissions',
+        'Pages'  // Add this line
+    ]);
+    ```
+
 3. **Run migrations and seeders:**
     ```bash
     php artisan migrate
