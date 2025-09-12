@@ -17,7 +17,19 @@ A Laravel starter kit that automates the installation of Nova, Spatie MediaLibra
 - Composer
 - Nova license (if using Nova)
 
-### Step-by-Step Installation Guide
+### Recommended: Use the Interactive Wizard
+
+You can use the interactive wizard to install only what's missing and select optional features:
+
+```bash
+php artisan starter:wizard
+```
+
+- Core (Nova, MediaLibrary, TinyMCE) and Permissions will be installed by default if not already present.
+- You can select optional features (like Page) using arrow keys and spacebar.
+- The wizard will skip already installed features.
+
+### Manual Steps (if you prefer)
 
 Follow these steps in **chronological order**:
 
@@ -27,7 +39,7 @@ composer config repositories.starter-kit vcs git@github.com:itskrayem/starter-pa
 composer require itskrayem/starter-package:dev-main
 ```
 
-#### Step 2: Install Core Components (Optional)
+#### Step 2: Install Core Components
 ```bash
 php artisan starter:install
 ```
