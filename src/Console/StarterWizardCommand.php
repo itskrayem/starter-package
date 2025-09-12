@@ -16,8 +16,9 @@ class StarterWizardCommand extends Command
         $this->newLine();
         $this->info('will be installed by default: 
         -Core (Nova, MediaLibrary, TinyMCE) 
-        -Permissions.');
-        $this->info('Select any additional features you want to install:');
+        -Permissions.
+        ');
+        $this->info('Select any additional features you want to install: (use spacebar to select)');
 
         $selected = Prompts\multiselect(
             label: 'Optional features:',
