@@ -182,23 +182,31 @@ class InstallCommand extends Command
 
     protected function publishPermissionStubs(): void
     {
-        $stubFolders = [
-            'models' => $this->appPath('Models'),
-            'nova' => $this->appPath('Nova'),
-            'seeders' => $this->databasePath('seeders'),
-            'migrations' => $this->databasePath('migrations'),
-            'Policies' => $this->appPath('Policies')
+        $permissionFiles = [
+            'models/Permission.php' => $this->appPath('Models/Permission.php'),
+            'models/Role.php' => $this->appPath('Models/Role.php'),
+            'nova/Permission.php' => $this->appPath('Nova/Permission.php'),
+            'nova/Role.php' => $this->appPath('Nova/Role.php'),
+            'Policies/PermissionPolicy.php' => $this->appPath('Policies/PermissionPolicy.php'),
+            'Policies/RolePolicy.php' => $this->appPath('Policies/RolePolicy.php'),
+            'Policies/UserPolicy.php' => $this->appPath('Policies/UserPolicy.php'),
+            'seeders/PermissionsSeeder.php' => $this->databasePath('seeders/PermissionsSeeder.php'),
+            'migrations/add_group_column_to_permissions_table.php' => $this->databasePath('migrations/add_group_column_to_permissions_table.php'),
         ];
 
-        foreach ($stubFolders as $folder => $destination) {
-            $source = __DIR__ . '/../stubs/' . $folder;
+        foreach ($permissionFiles as $source => $destination) {
+            $sourcePath = __DIR__ . '/../stubs/' . $source;
 
-            if (is_dir($source)) {
-                File::ensureDirectoryExists($destination);
-                File::copyDirectory($source, $destination);
-                $this->info("✅ Published permission stubs: {$folder}");
+            if (file_exists($sourcePath)) {
+                // Ensure destination directory exists
+                $destinationDir = dirname($destination);
+                File::ensureDirectoryExists($destinationDir);
+
+                // Copy the file
+                File::copy($sourcePath, $destination);
+                $this->info("✅ Published permission stub: {$source}");
             } else {
-                $this->warn("⚠️ Stub folder not found: {$source}");
+                $this->warn("⚠️ Permission stub not found: {$sourcePath}");
             }
         }
     }
