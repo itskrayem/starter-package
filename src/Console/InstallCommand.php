@@ -10,9 +10,8 @@ use Symfony\Component\Process\Process;
 class InstallCommand extends Command
 {
     private const PROVIDER_MEDIALIBRARY = 'Spatie\\MediaLibrary\\MediaLibraryServiceProvider';
-    private const PROVIDER_PERMISSION = 'Spatie\\Permission\\PermissionServiceProvider';
 
-    protected $signature = 'starter:install {features?* : Optional features to install (permission, etc.). Use "all" or "core" to install everything}';
+    protected $signature = 'starter:install {features?* : Optional features to install. Use "all" or "core" to install everything}';
     protected $description = 'Install starter package components. Installs core (Nova, MediaLibrary, Nova TinyMCE Editor) by default, or specific features only.';
 
     public function handle(): int
@@ -28,7 +27,6 @@ class InstallCommand extends Command
                 $this->info("ℹ️ Skipping core components. Installing features: " . implode(', ', $features));
             }
 
-            $this->installOptionalFeatures();
             // $this->runMigrations(); // Removed to avoid autoload issues
             $this->displayCompletionMessage();
 
@@ -131,92 +129,6 @@ class InstallCommand extends Command
             $this->info("✅ Published MediaLibrary migrations with tag: medialibrary-migrations");
         } catch (\Exception $e) {
             $this->warn("⚠️ Failed to publish MediaLibrary migrations. You may need to run: php artisan vendor:publish --provider=\"" . self::PROVIDER_MEDIALIBRARY . "\" --tag=medialibrary-migrations --force");
-        }
-    }
-
-    // -------------------------
-    // Optional Features
-    // -------------------------
-    protected function installOptionalFeatures(): void
-    {
-        $features = $this->argument('features') ?? [];
-        foreach ($features as $feature) {
-            if ($feature === 'permission') {
-                $this->installPermission();
-            } else {
-                $this->warn("⚠️ Unknown feature: {$feature}");
-            }
-        }
-    }
-
-    protected function installPermission(): void
-    {
-        $this->info("Installing Spatie Permission...");
-
-        if (!$this->isPackageInstalled('spatie/laravel-permission')) {
-            $this->runComposerCommand(['require', 'spatie/laravel-permission']);
-            $this->runComposerCommand(['dump-autoload']);
-            $this->runArtisanCommand(['package:discover']);
-        } else {
-            $this->line("✔ Spatie Permission already present.");
-        }
-
-        // Always publish migration and config after install/discover
-        try {
-            $this->runArtisanCommand(['vendor:publish', '--provider=' . self::PROVIDER_PERMISSION, '--force']);
-            $this->info("✅ Published Spatie Permission migration and config.");
-        } catch (\Exception $e) {
-            $this->warn("⚠️ Failed to publish Permission migration/config. You may need to run: php artisan vendor:publish --provider=\"" . self::PROVIDER_PERMISSION . "\" --force");
-        }
-
-        // Optionally clear config cache
-        try {
-            $this->runArtisanCommand(['config:clear']);
-        } catch (\Exception $e) {
-            // ignore
-        }
-
-        $this->publishPermissionStubs();
-
-        // Ensure autoload is updated after publishing stubs
-        try {
-            $this->runComposerCommand(['dump-autoload']);
-        } catch (\Exception $e) {
-            // ignore
-        }
-
-        $this->info("✅ Spatie Permission installed (package + migrations + stubs).");
-    }
-
-    protected function publishPermissionStubs(): void
-    {
-        $permissionFiles = [
-            'models/User.php' => $this->appPath('Models/User.php'),
-            'models/Permission.php' => $this->appPath('Models/Permission.php'),
-            'models/Role.php' => $this->appPath('Models/Role.php'),
-            'nova/Permission.php' => $this->appPath('Nova/Permission.php'),
-            'nova/Role.php' => $this->appPath('Nova/Role.php'),
-            'Policies/PermissionPolicy.php' => $this->appPath('Policies/PermissionPolicy.php'),
-            'Policies/RolePolicy.php' => $this->appPath('Policies/RolePolicy.php'),
-            'Policies/UserPolicy.php' => $this->appPath('Policies/UserPolicy.php'),
-            'seeders/PermissionsSeeder.php' => $this->databasePath('seeders/PermissionsSeeder.php'),
-            'migrations/add_group_column_to_permissions_table.php' => $this->databasePath('migrations/add_group_column_to_permissions_table.php'),
-        ];
-
-        foreach ($permissionFiles as $source => $destination) {
-            $sourcePath = __DIR__ . '/../stubs/' . $source;
-
-            if (file_exists($sourcePath)) {
-                // Ensure destination directory exists
-                $destinationDir = dirname($destination);
-                File::ensureDirectoryExists($destinationDir);
-
-                // Copy the file
-                File::copy($sourcePath, $destination);
-                $this->info("✅ Published permission stub: {$source}");
-            } else {
-                $this->warn("⚠️ Permission stub not found: {$sourcePath}");
-            }
         }
     }
 

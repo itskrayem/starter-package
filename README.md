@@ -35,9 +35,9 @@ This installs Laravel Nova, MediaLibrary, and Nova TinyMCE Editor. The installer
 
 #### Step 3: Install Permission Features
 ```bash
-php artisan starter:install permission
+php artisan starter:permissions
 ```
-This installs Spatie Permission package and publishes all related stubs.
+This installs Spatie Permission package and publishes all related stubs (models, Nova resources, policies, seeders, migrations).
 
 #### Step 4: Install Page Features (Optional)
 ```bash
@@ -112,30 +112,30 @@ php artisan db:seed
 After installation, you'll have:
 
 - **Models:** 
-  - `app/Models/User.php` with Spatie HasRoles trait
-  - `app/Models/Permission.php`
-  - `app/Models/Role.php`
-  - `app/Models/Page.php` (if page features installed)
+  - `app/Models/User.php` with Spatie HasRoles trait (installed via `php artisan starter:permissions`)
+  - `app/Models/Permission.php` (installed via `php artisan starter:permissions`)
+  - `app/Models/Role.php` (installed via `php artisan starter:permissions`)
+  - `app/Models/Page.php` (installed via `php artisan starter:page`)
 
 - **Nova Resources:** 
-  - `app/Nova/Permission.php`
-  - `app/Nova/Role.php`
-  - `app/Nova/Page.php` (if page features installed)
+  - `app/Nova/Permission.php` (installed via `php artisan starter:permissions`)
+  - `app/Nova/Role.php` (installed via `php artisan starter:permissions`)
+  - `app/Nova/Page.php` (installed via `php artisan starter:page`)
 
 - **Policies:** 
-  - `app/Policies/UserPolicy.php`
-  - `app/Policies/RolePolicy.php`
-  - `app/Policies/PermissionPolicy.php`
-  - `app/Policies/PagePolicy.php` (if page features installed)
+  - `app/Policies/UserPolicy.php` (installed via `php artisan starter:permissions`)
+  - `app/Policies/RolePolicy.php` (installed via `php artisan starter:permissions`)
+  - `app/Policies/PermissionPolicy.php` (installed via `php artisan starter:permissions`)
+  - `app/Policies/PagePolicy.php` (installed via `php artisan starter:page`)
 
 - **Seeders:** 
-  - `database/seeders/PermissionsSeeder.php`
+  - `database/seeders/PermissionsSeeder.php` (installed via `php artisan starter:permissions`)
 
 - **Migrations:** 
-  - Spatie Permission tables
+  - Spatie Permission tables (installed via `php artisan starter:permissions`)
   - MediaLibrary tables
-  - Additional permission columns
-  - `create_page_table.php` (if page features installed)
+  - Additional permission columns (installed via `php artisan starter:permissions`)
+  - `create_page_table.php` (installed via `php artisan starter:page`)
 
 ## Installation Complete!
 
