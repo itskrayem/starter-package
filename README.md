@@ -17,62 +17,17 @@ A Laravel starter kit that automates the installation of Nova, Spatie MediaLibra
 - Composer
 - Nova license (if using Nova)
 
-### Installation Options
+### Step-by-Step Installation Guide
 
-Choose one of the following installation methods:
-
-#### Option 1: Interactive Wizard (Recommended)
-```bash
-composer config repositories.starter-kit vcs git@github.com:itskrayem/starter-package.git
-composer require itskrayem/starter-package:dev-main
-```
-
-**Before running the wizard, configure your files:**
-
-1. **Update User Model** (`app/Models/User.php`):
-```php
-use Spatie\Permission\Traits\HasRoles;
-
-class User extends Authenticatable
-{
-    use HasFactory, Notifiable, HasRoles;
-    // ... rest of your model
-}
-```
-
-2. **Update DatabaseSeeder** (`database/seeders/DatabaseSeeder.php`):
-```php
-use Database\Seeders\PermissionsSeeder;
-
-public function run(): void
-{
-    // ... other seeders ...
-    $this->call([PermissionsSeeder::class]);
-}
-```
-
-**Then run the wizard:**
-```bash
-php artisan starter:wizard
-```
-
-**After the wizard completes:**
-- **If you selected page features**: Update `PermissionsSeeder.php` to include 'Pages'
-- **If you didn't select page features**: No additional configuration needed
-- Run migrations and seeders
-
-#### Option 2: Manual Installation
 Follow these steps in **chronological order**:
 
-**Step 1: Install the Package**
+#### Step 1: Install the Package
 ```bash
 composer config repositories.starter-kit vcs git@github.com:itskrayem/starter-package.git
 composer require itskrayem/starter-package:dev-main
 ```
 
-**Step 2: Configure Files BEFORE RUNNING COMMANDS**
-
-**2.1. Update User Model**
+#### Step 2: Configure User Model (BEFORE running commands)
 Edit `app/Models/User.php` to include the HasRoles trait:
 ```php
 <?php
@@ -87,12 +42,12 @@ use Spatie\Permission\Traits\HasRoles;
 class User extends Authenticatable
 {
     use HasFactory, Notifiable, HasRoles;
-    
+
     // ... rest of your User model ...
 }
 ```
 
-**2.2. Update DatabaseSeeder**
+#### Step 3: Configure DatabaseSeeder (BEFORE running commands)
 Edit `database/seeders/DatabaseSeeder.php` to include the permissions seeder:
 ```php
 <?php
@@ -107,7 +62,7 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         // ... other seeders ...
-        
+
         $this->call([
             PermissionsSeeder::class,
         ]);
@@ -115,32 +70,28 @@ class DatabaseSeeder extends Seeder
 }
 ```
 
-**Step 3: Run Installation Commands**
+#### Step 4: Run Installation Commands
 
-**3.1. Install Core Components**
+**Option A: Interactive Wizard (Recommended)**
 ```bash
+php artisan starter:wizard
+```
+The wizard will automatically install core components and permissions, then ask if you want to install page features.
+
+**Option B: Manual Installation**
+```bash
+# Install core components (Nova, MediaLibrary, TinyMCE)
 php artisan starter:core
-```
-This installs Laravel Nova, MediaLibrary, and Nova TinyMCE Editor. The installer will prompt for your Laravel Nova email and password if Nova is not already installed.
 
-**3.2. Install Permission Features**
-```bash
+# Install permission system
 php artisan starter:permissions
-```
-This installs Spatie Permission package and publishes all related stubs (models, Nova resources, policies, seeders, migrations).
 
-**3.3. Install Page Features (Optional)**
-```bash
+# Install page features (optional)
 php artisan starter:page
 ```
-This publishes page-related stubs (model, Nova resource, policy, migration).
 
-> 📝 **Note**: If you install page features, you'll need to configure PermissionsSeeder in Step 4.
-
-**Step 4: Configure Files AFTER Running Commands**
-
-**4.1. Update PermissionsSeeder (ONLY if you installed page features)**
-> ⚠️ **IMPORTANT**: This step is only required if you ran `php artisan starter:page` or selected page features in the wizard.
+#### Step 5: Configure PermissionsSeeder (ONLY if you installed page features)
+> ⚠️ **IMPORTANT**: This step is only required if you installed page features in Step 4.
 
 If you installed page features, edit `database/seeders/PermissionsSeeder.php` to include page permissions:
 ```php
@@ -154,10 +105,15 @@ $collection = collect([
 
 **If you did NOT install page features, skip this step - your PermissionsSeeder is already properly configured.**
 
-**Step 5: Run Database Operations**
+#### Step 6: Run Database Operations
 ```bash
 php artisan migrate
 php artisan db:seed
+```
+
+#### Step 7: Create Your First Nova User
+```bash
+php artisan nova:user
 ```
 
 ## Available Commands
@@ -170,13 +126,15 @@ php artisan db:seed
 ## Important: Configuration Order
 
 **BEFORE running any installation commands:**
-1. ✅ Configure User model with HasRoles trait
-2. ✅ Configure DatabaseSeeder to include PermissionsSeeder
+1. ✅ Install the package
+2. ✅ Configure User model with HasRoles trait
+3. ✅ Configure DatabaseSeeder to include PermissionsSeeder
 
 **AFTER running installation commands:**
 1. ✅ Configure PermissionsSeeder **ONLY if you installed page features** (add 'Pages' to collection)
 2. ✅ Run migrations: `php artisan migrate`
 3. ✅ Run seeders: `php artisan db:seed`
+4. ✅ Create Nova user: `php artisan nova:user`
 
 This order prevents trait errors and ensures proper database setup.
 
@@ -184,27 +142,27 @@ This order prevents trait errors and ensures proper database setup.
 
 After installation, you'll have:
 
-- **Models:** 
+- **Models:**
   - `app/Models/User.php` with Spatie HasRoles trait (installed via `php artisan starter:permissions`)
   - `app/Models/Permission.php` (installed via `php artisan starter:permissions`)
   - `app/Models/Role.php` (installed via `php artisan starter:permissions`)
   - `app/Models/Page.php` (installed via `php artisan starter:page`)
 
-- **Nova Resources:** 
+- **Nova Resources:**
   - `app/Nova/Permission.php` (installed via `php artisan starter:permissions`)
   - `app/Nova/Role.php` (installed via `php artisan starter:permissions`)
   - `app/Nova/Page.php` (installed via `php artisan starter:page`)
 
-- **Policies:** 
+- **Policies:**
   - `app/Policies/UserPolicy.php` (installed via `php artisan starter:permissions`)
   - `app/Policies/RolePolicy.php` (installed via `php artisan starter:permissions`)
   - `app/Policies/PermissionPolicy.php` (installed via `php artisan starter:permissions`)
   - `app/Policies/PagePolicy.php` (installed via `php artisan starter:page`)
 
-- **Seeders:** 
+- **Seeders:**
   - `database/seeders/PermissionsSeeder.php` (installed via `php artisan starter:permissions`)
 
-- **Migrations:** 
+- **Migrations:**
   - Spatie Permission tables (installed via `php artisan starter:permissions`)
   - MediaLibrary tables
   - Additional permission columns (installed via `php artisan starter:permissions`)
