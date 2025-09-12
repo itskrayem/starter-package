@@ -17,107 +17,129 @@ A Laravel starter kit that automates the installation of Nova, Spatie MediaLibra
 - Composer
 - Nova license (if using Nova)
 
-### Steps
+### Step-by-Step Installation Guide
 
-1. **Add the starter package repository and install:**
-    ```bash
-    composer config repositories.starter-kit vcs git@github.com:itskrayem/starter-package.git
-    composer require itskrayem/starter-package:dev-main
-    ```
+Follow these steps in **chronological order**:
 
-2. **Run the installer:**
-    ```bash
-    php artisan starter:install
-    ```
+#### Step 1: Install the Package
+```bash
+composer config repositories.starter-kit vcs git@github.com:itskrayem/starter-package.git
+composer require itskrayem/starter-package:dev-main
+```
 
-    The installer will automatically prompt for your Laravel Nova email and password if Nova is not already installed. Your credentials will be configured locally for this project only.
+#### Step 2: Install Core Components (Optional)
+```bash
+php artisan starter:install
+```
+This installs Laravel Nova, MediaLibrary, and Nova TinyMCE Editor. The installer will prompt for your Laravel Nova email and password if Nova is not already installed.
 
-    To install permission features:
-    ```bash
-    php artisan starter:install permission
-    ```
+#### Step 3: Install Permission Features
+```bash
+php artisan starter:install permission
+```
+This installs Spatie Permission package and publishes all related stubs.
 
-    To publish page-related stubs (model, nova resource, policy, migration):
-    ```bash
-    php artisan starter:page
-    ```
+#### Step 4: Install Page Features (Optional)
+```bash
+php artisan starter:page
+```
+This publishes page-related stubs (model, Nova resource, policy, migration).
 
-    **After running the page command:** Update your `database/seeders/PermissionsSeeder.php` to include permissions for pages by adding 'Pages' to the collection:
-    ```php
-    $collection = collect([
-        'Users',
-        'Roles',
-        'Permissions',
-        'Pages'  // Add this line
-    ]);
-    ```
+#### Step 5: Configure Files **BEFORE** Running Migrations
 
-3. **Run migrations and seeders:**
-    ```bash
-    php artisan migrate
-    php artisan db:seed
-    ```
+**5.1. Update DatabaseSeeder.php**
+Edit `database/seeders/DatabaseSeeder.php` to include the permissions seeder:
+```php
+<?php
 
-    **Important:** To enable the permissions seeder, add the following to your `database/seeders/DatabaseSeeder.php`:
-    ```php
-    use Database\Seeders\PermissionsSeeder;
+namespace Database\Seeders;
 
-    // ...
+use Illuminate\Database\Seeder;
+use Database\Seeders\PermissionsSeeder;
 
+class DatabaseSeeder extends Seeder
+{
     public function run(): void
     {
         // ... other seeders ...
-
+        
         $this->call([
             PermissionsSeeder::class,
         ]);
     }
-    ```
+}
+```
 
-    **Configure User Model for Permissions:** Update your `app/Models/User.php` to include the HasRoles trait:
-    ```php
-    <?php
+**5.2. Update PermissionsSeeder.php (if you ran step 4)**
+If you installed page features, edit `database/seeders/PermissionsSeeder.php` to include page permissions:
+```php
+$collection = collect([
+    'Users',
+    'Roles',
+    'Permissions',
+    'Pages'  // Add this line if you installed page features
+]);
+```
 
-    namespace App\Models;
+**5.3. Verify User Model (should already be updated)**
+Ensure your `app/Models/User.php` includes the HasRoles trait (this should be automatically done by the installer):
+```php
+<?php
 
-    // ... other imports ...
-    use Spatie\Permission\Traits\HasRoles;
+namespace App\Models;
 
-    class User extends Authenticatable
-    {
-        use HasRoles; // Add this trait
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+use Spatie\Permission\Traits\HasRoles;
 
-        // ... rest of your User model ...
+class User extends Authenticatable
+{
+    use HasFactory, Notifiable, HasRoles;
+    
+    // ... rest of your User model ...
+}
+```
 
-        protected $fillable = [
-            'name',
-            'email',
-            'password',
-            // Add any other fillable attributes you need
-        ];
+#### Step 6: Run Database Operations
+```bash
+php artisan migrate
+php artisan db:seed
+```
 
-        // ... rest of your User model ...
-    }
-    ```
+## What's Included
 
-## What’s Included
+After installation, you'll have:
 
-- **Models:** `app/Models/User.php` with Spatie HasRoles trait, `app/Models/Page.php`
-- **Nova Resources:** `app/Nova/User.php`, `app/Nova/Page.php`
-- **Seeders:** `database/seeders/PermissionsSeeder.php`
-- **Migrations:** MediaLibrary and Permission migrations, plus custom migrations from stubs including `create_page_table.php`
-- **Policies:** `app/Policies/UserPolicy.php`, `RolePolicy.php`, `PermissionPolicy.php`, `PagePolicy.php`
+- **Models:** 
+  - `app/Models/User.php` with Spatie HasRoles trait
+  - `app/Models/Permission.php`
+  - `app/Models/Role.php`
+  - `app/Models/Page.php` (if page features installed)
 
-## Next Steps
+- **Nova Resources:** 
+  - `app/Nova/Permission.php`
+  - `app/Nova/Role.php`
+  - `app/Nova/Page.php` (if page features installed)
 
-- Generate Nova User resource:
-    ```bash
-    php artisan nova:resource User
-    ```
-- Create your first Nova user:
-    ```bash
-    php artisan nova:user
-    ```
+- **Policies:** 
+  - `app/Policies/UserPolicy.php`
+  - `app/Policies/RolePolicy.php`
+  - `app/Policies/PermissionPolicy.php`
+  - `app/Policies/PagePolicy.php` (if page features installed)
+
+- **Seeders:** 
+  - `database/seeders/PermissionsSeeder.php`
+
+- **Migrations:** 
+  - Spatie Permission tables
+  - MediaLibrary tables
+  - Additional permission columns
+  - `create_page_table.php` (if page features installed)
+
+## Installation Complete!
+
+Your Laravel starter package is now ready to use. You can access Nova at `/nova` and start building your application with the pre-configured permission system.
 
 ## Troubleshooting
 

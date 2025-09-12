@@ -29,7 +29,7 @@ class InstallCommand extends Command
             }
 
             $this->installOptionalFeatures();
-            $this->runMigrations();
+            // $this->runMigrations(); // Removed to avoid autoload issues
             $this->displayCompletionMessage();
 
             return Command::SUCCESS;
@@ -56,8 +56,8 @@ class InstallCommand extends Command
         $this->info("🎉 Starter Package installation complete!");
         $this->newLine();
         $this->info("Next steps:");
-        $this->line("1️⃣ Generate Nova User resource: php artisan nova:resource User");
-        $this->line("2️⃣ Create your first Nova user: php artisan nova:user");
+        $this->line("1️⃣ Run migrations: php artisan migrate");
+        $this->line("2️⃣ Run seeders: php artisan db:seed");
     }
 
     // -------------------------
