@@ -14,6 +14,10 @@ class StarterWizardCommand extends Command
     {
         $this->info('🧙 Welcome to the Starter Package Wizard!');
         $this->newLine();
+        $this->warn('⚠️  IMPORTANT: Make sure you have configured your User model and DatabaseSeeder BEFORE running this wizard.');
+        $this->info('   - User model should have HasRoles trait');
+        $this->info('   - DatabaseSeeder should include PermissionsSeeder');
+        $this->newLine();
         $this->info('will be installed by default: 
         -Core (Nova, MediaLibrary, TinyMCE) 
         -Permissions.
@@ -46,17 +50,33 @@ class StarterWizardCommand extends Command
         }
 
         // Install page if selected
+        $pagesInstalled = false;
         if (in_array('page', $selected)) {
-            $this->call('starter:page');
+            // Check if pages are already installed
+            $pagesInstalled = app(\ItsKrayem\StarterPackage\Console\PageCommand::class)->isPagesInstalled();
+            if ($pagesInstalled) {
+                $this->info('✔ Page features already installed.');
+            } else {
+                $this->call('starter:page');
+            }
         }
 
         $this->info('✅ All selected features installed!');
         $this->newLine();
         $this->info('Next steps:');
-        $this->line('1️⃣ Run migrations: php artisan migrate');
-        $this->line('2️⃣ Run seeders: php artisan db:seed');
-        $this->line('3️⃣ Configure DatabaseSeeder.php and PermissionsSeeder.php as needed.');
-        $this->line('4️⃣ See README.md for more details.');
+        if (in_array('page', $selected) && !$pagesInstalled) {
+            $this->warn('⚠️  IMPORTANT: You installed page features - configure PermissionsSeeder');
+            $this->line('1️⃣ Update PermissionsSeeder.php to add \'Pages\' to the collection');
+        } elseif (in_array('page', $selected) && $pagesInstalled) {
+            $this->info('1️⃣ Page features were already installed - PermissionsSeeder should be configured');
+        } else {
+            $this->info('1️⃣ PermissionsSeeder is already configured (no page features installed)');
+        }
+        $this->line('2️⃣ Run migrations: php artisan migrate');
+        $this->line('3️⃣ Run seeders: php artisan db:seed');
+        $this->line('4️⃣ Create your first Nova user: php artisan nova:user');
+        $this->newLine();
+        $this->info('📖 See README.md for detailed configuration steps.');
 
         return Command::SUCCESS;
     }

@@ -59,4 +59,11 @@ class PageCommand extends Command
     {
         return database_path($path);
     }
+
+    public function isPagesInstalled(): bool
+    {
+        return file_exists($this->appPath('Models/Page.php')) 
+            || file_exists($this->appPath('Nova/Page.php'))
+            || file_exists($this->appPath('Policies/PagePolicy.php'));
+    }
 }

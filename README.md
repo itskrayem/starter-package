@@ -25,9 +25,41 @@ Choose one of the following installation methods:
 ```bash
 composer config repositories.starter-kit vcs git@github.com:itskrayem/starter-package.git
 composer require itskrayem/starter-package:dev-main
+```
+
+**Before running the wizard, configure your files:**
+
+1. **Update User Model** (`app/Models/User.php`):
+```php
+use Spatie\Permission\Traits\HasRoles;
+
+class User extends Authenticatable
+{
+    use HasFactory, Notifiable, HasRoles;
+    // ... rest of your model
+}
+```
+
+2. **Update DatabaseSeeder** (`database/seeders/DatabaseSeeder.php`):
+```php
+use Database\Seeders\PermissionsSeeder;
+
+public function run(): void
+{
+    // ... other seeders ...
+    $this->call([PermissionsSeeder::class]);
+}
+```
+
+**Then run the wizard:**
+```bash
 php artisan starter:wizard
 ```
-The wizard will guide you through selecting which features to install with an interactive interface.
+
+**After the wizard completes:**
+- **If you selected page features**: Update `PermissionsSeeder.php` to include 'Pages'
+- **If you didn't select page features**: No additional configuration needed
+- Run migrations and seeders
 
 #### Option 2: Manual Installation
 Follow these steps in **chronological order**:
@@ -38,27 +70,29 @@ composer config repositories.starter-kit vcs git@github.com:itskrayem/starter-pa
 composer require itskrayem/starter-package:dev-main
 ```
 
-**Step 2: Install Core Components**
-```bash
-php artisan starter:core
+**Step 2: Configure Files BEFORE RUNNING COMMANDS**
+
+**2.1. Update User Model**
+Edit `app/Models/User.php` to include the HasRoles trait:
+```php
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+use Spatie\Permission\Traits\HasRoles;
+
+class User extends Authenticatable
+{
+    use HasFactory, Notifiable, HasRoles;
+    
+    // ... rest of your User model ...
+}
 ```
-This installs Laravel Nova, MediaLibrary, and Nova TinyMCE Editor. The installer will prompt for your Laravel Nova email and password if Nova is not already installed.
 
-**Step 3: Install Permission Features**
-```bash
-php artisan starter:permissions
-```
-This installs Spatie Permission package and publishes all related stubs (models, Nova resources, policies, seeders, migrations).
-
-**Step 4: Install Page Features (Optional)**
-```bash
-php artisan starter:page
-```
-This publishes page-related stubs (model, Nova resource, policy, migration).
-
-**Step 5: Configure Files (BEFORE Running Migrations)**
-
-**5.1. Update DatabaseSeeder.php**
+**2.2. Update DatabaseSeeder**
 Edit `database/seeders/DatabaseSeeder.php` to include the permissions seeder:
 ```php
 <?php
@@ -81,38 +115,46 @@ class DatabaseSeeder extends Seeder
 }
 ```
 
-**5.2. Update PermissionsSeeder.php (if you ran step 4)**
+**Step 3: Run Installation Commands**
+
+**3.1. Install Core Components**
+```bash
+php artisan starter:core
+```
+This installs Laravel Nova, MediaLibrary, and Nova TinyMCE Editor. The installer will prompt for your Laravel Nova email and password if Nova is not already installed.
+
+**3.2. Install Permission Features**
+```bash
+php artisan starter:permissions
+```
+This installs Spatie Permission package and publishes all related stubs (models, Nova resources, policies, seeders, migrations).
+
+**3.3. Install Page Features (Optional)**
+```bash
+php artisan starter:page
+```
+This publishes page-related stubs (model, Nova resource, policy, migration).
+
+> 📝 **Note**: If you install page features, you'll need to configure PermissionsSeeder in Step 4.
+
+**Step 4: Configure Files AFTER Running Commands**
+
+**4.1. Update PermissionsSeeder (ONLY if you installed page features)**
+> ⚠️ **IMPORTANT**: This step is only required if you ran `php artisan starter:page` or selected page features in the wizard.
+
 If you installed page features, edit `database/seeders/PermissionsSeeder.php` to include page permissions:
 ```php
 $collection = collect([
     'Users',
     'Roles',
     'Permissions',
-    'Pages'  // Add this line if you installed page features
+    'Pages'  // Add this line ONLY if you installed page features
 ]);
 ```
 
-**5.3. Verify User Model (should already be updated)**
-Ensure your `app/Models/User.php` includes the HasRoles trait (this should be automatically done by the installer):
-```php
-<?php
+**If you did NOT install page features, skip this step - your PermissionsSeeder is already properly configured.**
 
-namespace App\Models;
-
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Notifications\Notifiable;
-use Spatie\Permission\Traits\HasRoles;
-
-class User extends Authenticatable
-{
-    use HasFactory, Notifiable, HasRoles;
-    
-    // ... rest of your User model ...
-}
-```
-
-**Step 6: Run Database Operations**
+**Step 5: Run Database Operations**
 ```bash
 php artisan migrate
 php artisan db:seed
@@ -124,6 +166,19 @@ php artisan db:seed
 - `php artisan starter:core` - Install core components (Nova, MediaLibrary, TinyMCE)
 - `php artisan starter:permissions` - Install permission system
 - `php artisan starter:page` - Install page features
+
+## Important: Configuration Order
+
+**BEFORE running any installation commands:**
+1. ✅ Configure User model with HasRoles trait
+2. ✅ Configure DatabaseSeeder to include PermissionsSeeder
+
+**AFTER running installation commands:**
+1. ✅ Configure PermissionsSeeder **ONLY if you installed page features** (add 'Pages' to collection)
+2. ✅ Run migrations: `php artisan migrate`
+3. ✅ Run seeders: `php artisan db:seed`
+
+This order prevents trait errors and ensures proper database setup.
 
 ## What's Included
 
