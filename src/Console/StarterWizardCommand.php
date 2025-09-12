@@ -14,7 +14,9 @@ class StarterWizardCommand extends Command
     {
         $this->info('🧙 Welcome to the Starter Package Wizard!');
         $this->newLine();
-        $this->info('Core (Nova, MediaLibrary, TinyMCE) and Permissions will be installed by default.');
+        $this->info('will be installed by default: 
+        -Core (Nova, MediaLibrary, TinyMCE) 
+        -Permissions.');
         $this->info('Select any additional features you want to install:');
 
         $selected = Prompts\multiselect(
