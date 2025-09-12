@@ -43,6 +43,22 @@ A Laravel starter kit that automates the installation of Nova, Spatie MediaLibra
     php artisan db:seed
     ```
 
+    **Important:** To enable the permissions seeder, add the following to your `database/seeders/DatabaseSeeder.php`:
+    ```php
+    use Database\Seeders\PermissionsSeeder;
+
+    // ...
+
+    public function run(): void
+    {
+        // ... other seeders ...
+
+        $this->call([
+            PermissionsSeeder::class,
+        ]);
+    }
+    ```
+
 ## What’s Included
 
 - **Models:** `app/Models/User.php` with Spatie HasRoles trait
