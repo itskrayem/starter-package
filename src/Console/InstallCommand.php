@@ -155,6 +155,7 @@ class InstallCommand extends Command
 
         if (!$this->isPackageInstalled('spatie/laravel-permission')) {
             $this->runComposerCommand(['require', 'spatie/laravel-permission']);
+            $this->runComposerCommand(['dump-autoload']);
             $this->runArtisanCommand(['package:discover']);
         } else {
             $this->line("✔ Spatie Permission already present.");

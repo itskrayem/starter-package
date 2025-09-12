@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Models\Page;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Auth\Access\Response;
@@ -19,7 +20,7 @@ class PagePolicy
     /**
      * Determine whether the user can view the model.
      */
-    public function view(User $user, Role $role): bool
+    public function view(User $user, Page $page): bool
     {
         return $user->can('Read Pages');
     }
@@ -35,9 +36,9 @@ class PagePolicy
     /**
      * Determine whether the user can update the model.
      */
-    public function update(User $user, Role $role): bool
+    public function update(User $user, Page $page): bool
     {
-        if($user->can('Edit Pages') && $role->name != 'Super Admin') {
+        if ($user->can('Edit Pages')) {
             return true;
         }
 
@@ -47,9 +48,9 @@ class PagePolicy
     /**
      * Determine whether the user can delete the model.
      */
-    public function delete(User $user, Role $role): bool
+    public function delete(User $user, Page $page): bool
     {
-        if($user->can('Delete Pages') && $role->name != 'Super Admin') {
+        if ($user->can('Delete Pages')) {
             return true;
         }
 
@@ -59,7 +60,7 @@ class PagePolicy
     /**
      * Determine whether the user can replicate the model.
      */
-    public function replicate(User $user, Role $role): bool
+    public function replicate(User $user, Page $page): bool
     {
         return false;
     }
@@ -67,7 +68,7 @@ class PagePolicy
     /**
      * Determine whether the user can restore the model.
      */
-    public function restore(User $user, Role $role): bool
+    public function restore(User $user, Page $page): bool
     {
         return $user->can('Restore Pages');
     }
@@ -75,7 +76,7 @@ class PagePolicy
     /**
      * Determine whether the user can permanently delete the model.
      */
-    public function forceDelete(User $user, Role $role): bool
+    public function forceDelete(User $user, Page $page): bool
     {
         return $user->can('Force Delete Pages');
     }

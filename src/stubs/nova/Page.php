@@ -45,16 +45,20 @@ class Page extends Resource
         return [
             ID::make()->sortable(),
 
-            TinymceEditor::make('Description', 'body')
-                    ->rules(['nullable'])
-                    ->fullWidth(),
-
+            Text::make('Title')
+                ->rules(['nullable', 'max:255'])
+                ->sortable(),
+                
             Slug::make('Slug')->from('Title'),
 
+            TinymceEditor::make('Description', 'body')
+                ->rules(['nullable'])
+                ->fullWidth(),
+
             Boolean::make('Active?', 'is_active')
-            ->default(0)
-            ->filterable()
-            ->help('If Page is not active it will be hidden in all website'),
+                ->default(0)
+                ->filterable()
+                ->help('If Page is not active it will be hidden in all website'),
         ];
     }
 
