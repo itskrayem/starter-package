@@ -3,6 +3,7 @@
 namespace ItsKrayem\StarterPackage\Console;
 
 use Illuminate\Console\Command;
+use Laravel\Prompts;
 
 class StarterWizardCommand extends Command
 {
@@ -13,20 +14,16 @@ class StarterWizardCommand extends Command
     {
         $this->info('🧙 Welcome to the Starter Package Wizard!');
         $this->newLine();
-        $this->info('Select which features you want to install:');
+        $this->info('Core (Nova, MediaLibrary, TinyMCE) and Permissions will be installed by default.');
+        $this->info('Select any additional features you want to install:');
 
-        $choices = [
-            'Core (Nova, MediaLibrary, TinyMCE, required)' => true,
-            'Permissions (required)' => true,
-            'Page (optional)' => false,
-        ];
-
-        $selected = $this->choice(
-            'Choose additional features to install (use comma to select multiple):',
-            array_keys($choices),
-            null,
-            null,
-            true
+        $selected = Prompts\multiselect(
+            label: 'Optional features:',
+            options: [
+                'Page' => 'page',
+            ],
+            default: [],
+            hint: 'Core and Permissions are always installed.'
         );
 
         // Always install core and permissions
@@ -34,7 +31,7 @@ class StarterWizardCommand extends Command
         $this->call('starter:permissions');
 
         // Install page if selected
-        if (in_array('Page (optional)', $selected)) {
+        if (in_array('page', $selected)) {
             $this->call('starter:page');
         }
 
