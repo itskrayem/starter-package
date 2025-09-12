@@ -33,13 +33,6 @@ class StarterWizardCommand extends Command
             hint: 'Core and Permissions are always installed.'
         );
 
-        // Debug: Show what was selected
-        $this->info('📋 Selected features: ' . implode(', ', $selected));
-        $this->info('🔍 Selected array contents: [' . implode(', ', array_map(fn($v) => "'$v'", $selected)) . ']');
-        $this->info('🔍 Array is empty: ' . (empty($selected) ? 'YES' : 'NO'));
-        $this->info('🔍 Checking for "page" in selected: ' . (in_array('page', $selected) ? 'YES' : 'NO'));
-        $this->info('🔍 Checking for "Page" in selected: ' . (in_array('Page', $selected) ? 'YES' : 'NO'));
-
         // Check if core is already installed
         $coreCommand = new \ItsKrayem\StarterPackage\Console\CoreCommand();
         $coreInstalled = $coreCommand->isCoreInstalled();
@@ -61,11 +54,9 @@ class StarterWizardCommand extends Command
         // Install page if selected
         $pagesInstalled = false;
         if (!empty($selected)) {  // If anything is selected, assume Page was chosen
-            $this->info('🔍 Checking if page features are already installed...');
             // Check if pages are already installed
             $pageCommand = new \ItsKrayem\StarterPackage\Console\PageCommand();
             $pagesInstalled = $pageCommand->isPagesInstalled();
-            $this->info('📋 Pages installed status: ' . ($pagesInstalled ? 'Yes' : 'No'));
             
             if ($pagesInstalled) {
                 $this->info('✔ Page features already installed.');

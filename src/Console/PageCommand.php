@@ -70,9 +70,6 @@ class PageCommand extends Command
         $novaExists = file_exists($novaPath);
         $policyExists = file_exists($policyPath);
         
-        // Simple debug output
-        echo "Page check - Model: " . ($modelExists ? 'EXISTS' : 'NOT') . ", Nova: " . ($novaExists ? 'EXISTS' : 'NOT') . ", Policy: " . ($policyExists ? 'EXISTS' : 'NOT') . "\n";
-        
         return $modelExists || $novaExists || $policyExists;
     }
 }
