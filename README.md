@@ -37,6 +37,11 @@ A Laravel starter kit that automates the installation of Nova, Spatie MediaLibra
     php artisan starter:install permission
     ```
 
+    To publish page-related stubs (model, nova resource, policy, migration):
+    ```bash
+    php artisan starter:page
+    ```
+
 3. **Run migrations and seeders:**
     ```bash
     php artisan migrate
@@ -59,13 +64,39 @@ A Laravel starter kit that automates the installation of Nova, Spatie MediaLibra
     }
     ```
 
+    **Configure User Model for Permissions:** Update your `app/Models/User.php` to include the HasRoles trait:
+    ```php
+    <?php
+
+    namespace App\Models;
+
+    // ... other imports ...
+    use Spatie\Permission\Traits\HasRoles;
+
+    class User extends Authenticatable
+    {
+        use HasRoles; // Add this trait
+
+        // ... rest of your User model ...
+
+        protected $fillable = [
+            'name',
+            'email',
+            'password',
+            // Add any other fillable attributes you need
+        ];
+
+        // ... rest of your User model ...
+    }
+    ```
+
 ## What’s Included
 
-- **Models:** `app/Models/User.php` with Spatie HasRoles trait
-- **Nova Resources:** `app/Nova/User.php`
+- **Models:** `app/Models/User.php` with Spatie HasRoles trait, `app/Models/Page.php`
+- **Nova Resources:** `app/Nova/User.php`, `app/Nova/Page.php`
 - **Seeders:** `database/seeders/PermissionsSeeder.php`
-- **Migrations:** MediaLibrary and Permission migrations, plus custom migrations from stubs
-- **Policies:** `app/Policies/UserPolicy.php`, `RolePolicy.php`, `PermissionPolicy.php`
+- **Migrations:** MediaLibrary and Permission migrations, plus custom migrations from stubs including `create_page_table.php`
+- **Policies:** `app/Policies/UserPolicy.php`, `RolePolicy.php`, `PermissionPolicy.php`, `PagePolicy.php`
 
 ## Next Steps
 

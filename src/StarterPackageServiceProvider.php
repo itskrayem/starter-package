@@ -4,6 +4,7 @@ namespace ItsKrayem\StarterPackage;
 
 use Illuminate\Support\ServiceProvider;
 use ItsKrayem\StarterPackage\Console\InstallCommand;
+use ItsKrayem\StarterPackage\Console\PageCommand;
 
 class StarterPackageServiceProvider extends ServiceProvider
 {
@@ -12,6 +13,7 @@ class StarterPackageServiceProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
             $this->commands([
                 InstallCommand::class,
+                PageCommand::class,
             ]);
         }
     }
