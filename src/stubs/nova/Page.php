@@ -7,10 +7,8 @@ use Laravel\Nova\Fields\ID;
 use Laravel\Nova\Fields\Slug;
 use Laravel\Nova\Fields\Text;
 use Laravel\Nova\Fields\Boolean;
-use Spatie\NovaTranslatable\Translatable;
 use Laravel\Nova\Http\Requests\NovaRequest;
 use Murdercode\TinymceEditor\TinymceEditor;
-use Laravel\Nova\Fields\Color;
 
 class Page extends Resource
 {
@@ -47,24 +45,11 @@ class Page extends Resource
         return [
             ID::make()->sortable(),
 
-            Translatable::make([
-                Text::make('Title')
-                    ->rules('nullable', 'max:255')
-                    ->sortable(),
-
-                TinymceEditor::make('Description', 'body')
+            TinymceEditor::make('Description', 'body')
                     ->rules(['nullable'])
                     ->fullWidth(),
-            ])->locales(['en', 'ar']),
 
-            Slug::make('Slug')
-            ->help('Leave empty to auto complete')
-            ->hideWhenCreating()
-            ->creationRules('nullable', 'max:255', 'unique:posts,slug')
-            ->updateRules('required', 'max:255', 'unique:posts,slug,{{resourceId}}'),
-
-            Color::make('Color', 'bg_color')
-            ->help('Choose the background color for this section'),
+            Slug::make('Slug')->from('Title'),
 
             Boolean::make('Active?', 'is_active')
             ->default(0)

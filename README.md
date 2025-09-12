@@ -1,10 +1,10 @@
 # Starter Package for Laravel
 
-A Laravel starter kit that automates the installation of Nova, Spatie MediaLibrary, TinyMCE, Spatie Permission, and scaffolds models, seeders, migrations, Nova resources, and policies.
+A Laravel starter kit that automates the installation of Nova, Spatie MediaLibrary, Nova TinyMCE Editor, Spatie Permission, and scaffolds models, seeders, migrations, Nova resources, and policies.
 
 ## Features
 
-- Installs Laravel Nova, MediaLibrary, TinyMCE, and Spatie Permission via artisan command
+- Installs Laravel Nova, MediaLibrary, Nova TinyMCE Editor, and Spatie Permission via artisan command
 - Publishes migrations and config files automatically
 - Copies stubs for models, Nova resources, seeders, migrations, and policies
 - Runs database migrations and seeds permissions

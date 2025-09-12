@@ -13,7 +13,7 @@ class InstallCommand extends Command
     private const PROVIDER_PERMISSION = 'Spatie\\Permission\\PermissionServiceProvider';
 
     protected $signature = 'starter:install {features?* : Optional features to install (permission, etc.). Use "all" or "core" to install everything}';
-    protected $description = 'Install starter package components. Installs core (Nova, MediaLibrary, TinyMCE) by default, or specific features only.';
+    protected $description = 'Install starter package components. Installs core (Nova, MediaLibrary, Nova TinyMCE Editor) by default, or specific features only.';
 
     public function handle(): int
     {
@@ -99,15 +99,15 @@ class InstallCommand extends Command
     // -------------------------
     protected function installTinyMCE(): void
     {
-        $this->info("Installing TinyMCE...");
+        $this->info("Installing Nova TinyMCE Editor...");
 
-        if (!$this->isPackageInstalled('tinymce/tinymce')) {
-            $this->runComposerCommand(['require', 'tinymce/tinymce']);
+        if (!$this->isPackageInstalled('murdercode/nova4-tinymce-editor')) {
+            $this->runComposerCommand(['require', 'murdercode/nova4-tinymce-editor']);
         } else {
-            $this->line("✔ TinyMCE already installed.");
+            $this->line("✔ Nova TinyMCE Editor already installed.");
         }
 
-        $this->info("✅ TinyMCE setup complete.");
+        $this->info("✅ Nova TinyMCE Editor setup complete.");
     }
 
     // -------------------------
