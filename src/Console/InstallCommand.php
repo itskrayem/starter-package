@@ -18,7 +18,11 @@ class InstallCommand extends Command
     public function handle(): int
     {
         $this->info("🚀 Installing Starter Package...");
+        
+        $name = $this->ask('What is your name?');
+        $this->info("welcome $name");
 
+        return Command::SUCCESS;
         try {
             $features = $this->argument('features') ?? [];
 
