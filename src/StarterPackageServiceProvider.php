@@ -6,6 +6,7 @@ use Illuminate\Support\ServiceProvider;
 use ItsKrayem\StarterPackage\Console\InstallCommand;
 use ItsKrayem\StarterPackage\Console\PageCommand;
 use ItsKrayem\StarterPackage\Console\PermissionsCommand;
+use ItsKrayem\StarterPackage\Console\StarterWizardCommand;
 
 class StarterPackageServiceProvider extends ServiceProvider
 {
@@ -16,6 +17,7 @@ class StarterPackageServiceProvider extends ServiceProvider
                 InstallCommand::class,
                 PageCommand::class,
                 PermissionsCommand::class,
+                StarterWizardCommand::class,
             ]);
         }
     }
