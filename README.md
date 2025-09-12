@@ -64,7 +64,7 @@ A Laravel starter kit that automates the installation of Nova, Spatie MediaLibra
     }
     ```
 
-    **Configure User Model for Permissions:** Update your `app/Models/User.php` to include the HasRoles trait:
+    **Configure User Model for Permissions:** The installer publishes a `app/Models/User.php` with the HasRoles trait included. If you have an existing User model, you may need to merge the changes or manually add the trait as shown below:
     ```php
     <?php
 

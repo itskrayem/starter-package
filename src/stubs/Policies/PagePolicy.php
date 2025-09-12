@@ -2,7 +2,7 @@
 
 namespace App\Policies;
 
-use App\Models\Page;
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Auth\Access\Response;
 
@@ -19,9 +19,9 @@ class PagePolicy
     /**
      * Determine whether the user can view the model.
      */
-    public function view(User $user, Page $page): bool
+    public function view(User $user, Role $role): bool
     {
-         return $user->can('Read Pages');
+        return $user->can('Read Pages');
     }
 
     /**
@@ -29,39 +29,54 @@ class PagePolicy
      */
     public function create(User $user): bool
     {
-        //  return $user->can('Add Pages');
-        return false;
+        return $user->can('Add Pages');
     }
 
     /**
      * Determine whether the user can update the model.
      */
-    public function update(User $user, Page $page): bool
+    public function update(User $user, Role $role): bool
     {
-         return $user->can('Edit Pages');
+        if($user->can('Edit Pages') && $role->name != 'Super Admin') {
+            return true;
+        }
+
+        return false;
     }
 
     /**
      * Determine whether the user can delete the model.
      */
-    public function delete(User $user, Page $page): bool
+    public function delete(User $user, Role $role): bool
     {
-         return $user->can('Delete Pages');
+        if($user->can('Delete Pages') && $role->name != 'Super Admin') {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Determine whether the user can replicate the model.
+     */
+    public function replicate(User $user, Role $role): bool
+    {
+        return false;
     }
 
     /**
      * Determine whether the user can restore the model.
      */
-    public function restore(User $user, Page $page): bool
+    public function restore(User $user, Role $role): bool
     {
-         return $user->can('Restore Pages');
+        return $user->can('Restore Pages');
     }
 
     /**
      * Determine whether the user can permanently delete the model.
      */
-    public function forceDelete(User $user, Page $page): bool
+    public function forceDelete(User $user, Role $role): bool
     {
-         return $user->can('Force Delete Pages');
+        return $user->can('Force Delete Pages');
     }
 }

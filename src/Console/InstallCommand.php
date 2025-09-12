@@ -183,6 +183,7 @@ class InstallCommand extends Command
     protected function publishPermissionStubs(): void
     {
         $permissionFiles = [
+            'models/User.php' => $this->appPath('Models/User.php'),
             'models/Permission.php' => $this->appPath('Models/Permission.php'),
             'models/Role.php' => $this->appPath('Models/Role.php'),
             'nova/Permission.php' => $this->appPath('Nova/Permission.php'),
