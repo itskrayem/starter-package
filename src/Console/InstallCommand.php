@@ -25,6 +25,13 @@ class InstallCommand extends Command
                 $this->installCoreComponents();
             } else {
                 $this->info("ℹ️ Skipping core components. Installing features: " . implode(', ', $features));
+                
+                // Handle permission feature separately
+                if (in_array('permission', $features)) {
+                    $this->warn("⚠️ Permission installation has been moved to a separate command.");
+                    $this->info("Please run: php artisan starter:permissions");
+                    return Command::SUCCESS;
+                }
             }
 
             // $this->runMigrations(); // Removed to avoid autoload issues

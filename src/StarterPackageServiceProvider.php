@@ -5,6 +5,7 @@ namespace ItsKrayem\StarterPackage;
 use Illuminate\Support\ServiceProvider;
 use ItsKrayem\StarterPackage\Console\InstallCommand;
 use ItsKrayem\StarterPackage\Console\PageCommand;
+use ItsKrayem\StarterPackage\Console\PermissionsCommand;
 
 class StarterPackageServiceProvider extends ServiceProvider
 {
@@ -14,6 +15,7 @@ class StarterPackageServiceProvider extends ServiceProvider
             $this->commands([
                 InstallCommand::class,
                 PageCommand::class,
+                PermissionsCommand::class,
             ]);
         }
     }

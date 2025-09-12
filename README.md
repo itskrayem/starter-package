@@ -39,6 +39,8 @@ php artisan starter:permissions
 ```
 This installs Spatie Permission package and publishes all related stubs (models, Nova resources, policies, seeders, migrations).
 
+**Note:** Previously you could use `php artisan starter:install permission`, but this has been moved to a separate command for better organization.
+
 #### Step 4: Install Page Features (Optional)
 ```bash
 php artisan starter:page
