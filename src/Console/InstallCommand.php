@@ -178,6 +178,13 @@ class InstallCommand extends Command
 
         $this->publishPermissionStubs();
 
+        // Ensure autoload is updated after publishing stubs
+        try {
+            $this->runComposerCommand(['dump-autoload']);
+        } catch (\Exception $e) {
+            // ignore
+        }
+
         $this->info("✅ Spatie Permission installed (package + migrations + stubs).");
     }
 

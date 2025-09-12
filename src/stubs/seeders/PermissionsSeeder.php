@@ -53,7 +53,7 @@ class PermissionsSeeder extends Seeder
         if (!$user) {
             $user = User::create([
                 'name'      => 'Super Admin',
-                'email'     => 'admin@dondon.app',
+                'email'     => 'admin@admin.com',
                 'password'  => bcrypt('Saf3Hav3n!')
             ]);
         }
