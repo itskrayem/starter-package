@@ -17,49 +17,46 @@ A Laravel starter kit that automates the installation of Nova, Spatie MediaLibra
 - Composer
 - Nova license (if using Nova)
 
-### Recommended: Use the Interactive Wizard
+### Installation Options
 
-You can use the interactive wizard to install only what's missing and select optional features:
+Choose one of the following installation methods:
 
+#### Option 1: Interactive Wizard (Recommended)
 ```bash
+composer config repositories.starter-kit vcs git@github.com:itskrayem/starter-package.git
+composer require itskrayem/starter-package:dev-main
 php artisan starter:wizard
 ```
+The wizard will guide you through selecting which features to install with an interactive interface.
 
-- Core (Nova, MediaLibrary, TinyMCE) and Permissions will be installed by default if not already present.
-- You can select optional features (like Page) using arrow keys and spacebar.
-- The wizard will skip already installed features.
-
-### Manual Steps (if you prefer)
-
+#### Option 2: Manual Installation
 Follow these steps in **chronological order**:
 
-#### Step 1: Install the Package
+**Step 1: Install the Package**
 ```bash
 composer config repositories.starter-kit vcs git@github.com:itskrayem/starter-package.git
 composer require itskrayem/starter-package:dev-main
 ```
 
-#### Step 2: Install Core Components
+**Step 2: Install Core Components**
 ```bash
 php artisan starter:install
 ```
 This installs Laravel Nova, MediaLibrary, and Nova TinyMCE Editor. The installer will prompt for your Laravel Nova email and password if Nova is not already installed.
 
-#### Step 3: Install Permission Features
+**Step 3: Install Permission Features**
 ```bash
 php artisan starter:permissions
 ```
 This installs Spatie Permission package and publishes all related stubs (models, Nova resources, policies, seeders, migrations).
 
-**Note:** Previously you could use `php artisan starter:install permission`, but this has been moved to a separate command for better organization.
-
-#### Step 4: Install Page Features (Optional)
+**Step 4: Install Page Features (Optional)**
 ```bash
 php artisan starter:page
 ```
 This publishes page-related stubs (model, Nova resource, policy, migration).
 
-#### Step 5: Configure Files **BEFORE** Running Migrations
+**Step 5: Configure Files (BEFORE Running Migrations)**
 
 **5.1. Update DatabaseSeeder.php**
 Edit `database/seeders/DatabaseSeeder.php` to include the permissions seeder:
@@ -115,11 +112,18 @@ class User extends Authenticatable
 }
 ```
 
-#### Step 6: Run Database Operations
+**Step 6: Run Database Operations**
 ```bash
 php artisan migrate
 php artisan db:seed
 ```
+
+## Available Commands
+
+- `php artisan starter:wizard` - Interactive wizard to select features (recommended)
+- `php artisan starter:install` - Install core components (Nova, MediaLibrary, TinyMCE)
+- `php artisan starter:permissions` - Install permission system
+- `php artisan starter:page` - Install page features
 
 ## What's Included
 
