@@ -12,28 +12,21 @@ use Spatie\MediaLibrary\MediaCollections\Models\Media;
 class Page extends Model implements HasMedia
 {
     use SoftDeletes, InteractsWithMedia;
-    public $translatable = ['title', 'body'];
+    protected $fillable = ['title', 'slug', 'body', 'is_active'];
 
     /**
      * Register media collections
      */
     public function registerMediaCollections(): void
     {
-        $this->addMediaCollection('images')
-            ->singleFile()
-            ->acceptsMimeTypes(['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
+        $this
+            ->addMediaCollection('images')
+            ->useDisk('public'); 
     }
 
-    /**
-     * Get the main image URL
-     */
-    public function getImageUrl(string $conversion = ''): string
+
+    public function getImagesAttribute()
     {
-        $media = $this->getFirstMedia('images');
-        if (!$media) {
-            return '';
-        }
-        
-        return $conversion ? $media->getUrl($conversion) : $media->getUrl();
+        return $this->getMedia('images')->map(fn($media) => $media->getUrl());
     }
 }

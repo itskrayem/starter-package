@@ -1,124 +1,80 @@
 <?php
 
 namespace App\Nova;
-
+use Laravel\Nova\Http\Requests\NovaRequest; 
 use Illuminate\Http\Request;
 use Laravel\Nova\Fields\ID;
-use Laravel\Nova\Fields\Slug;
 use Laravel\Nova\Fields\Text;
+use Laravel\Nova\Fields\Select;
+use Laravel\Nova\Fields\File;
 use Laravel\Nova\Fields\Image;
-use Laravel\Nova\Fields\Boolean;
-use Laravel\Nova\Http\Requests\NovaRequest;
+use Laravel\Nova\Panel;
+use Laravel\Nova\Fields\Slug;
 use Murdercode\TinymceEditor\TinymceEditor;
-use Illuminate\Support\Facades\Storage;
+use Laravel\Nova\Fields\Boolean;
+
 
 class Page extends Resource
 {
-    /**
-     * The model the resource corresponds to.
-     *
-     * @var class-string<\App\Models\Page>
-     */
     public static $model = \App\Models\Page::class;
+   public static $title = 'id';
+    public static $search = ['id'];
 
-    /**
-     * The single value that should be used to represent the resource when being displayed.
-     *
-     * @var string
-     */
-    public static $title = 'id';
-
-    /**
-     * The columns that should be searched.
-     *
-     * @var array
-     */
-    public static $search = [
-        'id',
-    ];
-
-    /**
-     * Get the fields displayed by the resource.
-     *
-     * @return array<int, \Laravel\Nova\Fields\Field>
-     */
-    public function fields(NovaRequest $request): array
+    public function fields(NovaRequest $request)
     {
         return [
             ID::make()->sortable(),
 
             Text::make('Title')
-                ->rules(['nullable', 'max:255'])
-                ->sortable(),
-                
+            ->rules(['nullable', 'max:255'])
+            ->sortable(),
+
             Slug::make('Slug')->from('Title'),
 
             TinymceEditor::make('Description', 'body')
-                ->rules(['nullable'])
-                ->fullWidth(),
+            ->rules(['nullable'])
+            ->fullWidth(),
 
-            Image::make('Image')
-                ->disk('public')
-                ->path('pages')
+            File::make('Upload Image', 'image') 
                 ->store(function ($request, $model) {
-                    if ($request->image) {
+                    if ($request->hasFile('image')) {
                         $model->addMediaFromRequest('image')
-                            ->toMediaCollection('images');
+                            ->toMediaCollection('images', 'public'); 
                     }
-                    return null;
+                    return []; 
                 })
-                ->preview(function ($value, $disk) {
-                    return $value ? \Illuminate\Support\Facades\Storage::disk($disk)->url($value) : null;
-                })
-                ->thumbnail(function () {
-                    return $this->getImageUrl('thumb') ?: $this->getImageUrl();
-                })
-                ->deletable(false),
+                ->onlyOnForms(),
+
+            Panel::make('Media Files', [
+          
+                Text::make('Image Gallery', function () {
+                    $mediaItems = $this->getMedia('images');
+                    if ($mediaItems->isEmpty()) return 'No images';
+                    $gallery = '';
+                    foreach ($mediaItems as $media) {
+                        $url = $media->getFullUrl();
+                        $gallery .= "<img src='{$url}' style='max-width:200px; border-radius:8px; margin:5px;' />";
+                    }
+                    return $gallery;
+                })->asHtml()->onlyOnDetail(), 
+                
+                // Text::make('File Downloads', function () {
+                //     $mediaItems = $this->getMedia('files');
+                //     if ($mediaItems->isEmpty()) return 'No files';
+                //     $links = '';
+                //     foreach ($mediaItems as $media) {
+                //         $url = $media->getFullUrl();
+                //         $name = $media->file_name;
+                //         $links .= "<a href='{$url}' download class='text-primary underline block mb-1'>{$name}</a>";
+                //     }
+                //     return $links;
+                // })->asHtml()->onlyOnDetail(),
+            ]),
 
             Boolean::make('Active?', 'is_active')
-                ->default(0)
-                ->filterable()
-                ->help('If Page is not active it will be hidden in all website'),
+            ->default(0)
+            ->filterable()
+            ->help('If Page is not active it will be hidden in all website'),
         ];
-    }
-
-    /**
-     * Get the cards available for the resource.
-     *
-     * @return array<int, \Laravel\Nova\Card>
-     */
-    public function cards(NovaRequest $request): array
-    {
-        return [];
-    }
-
-    /**
-     * Get the filters available for the resource.
-     *
-     * @return array<int, \Laravel\Nova\Filters\Filter>
-     */
-    public function filters(NovaRequest $request): array
-    {
-        return [];
-    }
-
-    /**
-     * Get the lenses available for the resource.
-     *
-     * @return array<int, \Laravel\Nova\Lenses\Lens>
-     */
-    public function lenses(NovaRequest $request): array
-    {
-        return [];
-    }
-
-    /**
-     * Get the actions available for the resource.
-     *
-     * @return array<int, \Laravel\Nova\Actions\Action>
-     */
-    public function actions(NovaRequest $request): array
-    {
-        return [];
     }
 }
