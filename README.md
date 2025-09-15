@@ -23,7 +23,6 @@ Follow these steps in **chronological order**:
 
 #### Step 1: Install the Package
 ```bash
-composer config repositories.starter-kit vcs https://github.com/itskrayem/starter-package.git
 composer require itskrayem/starter-package:dev-main
 ```
 
