@@ -6,9 +6,11 @@ use Illuminate\Http\Request;
 use Laravel\Nova\Fields\ID;
 use Laravel\Nova\Fields\Slug;
 use Laravel\Nova\Fields\Text;
+use Laravel\Nova\Fields\Image;
 use Laravel\Nova\Fields\Boolean;
 use Laravel\Nova\Http\Requests\NovaRequest;
 use Murdercode\TinymceEditor\TinymceEditor;
+use Illuminate\Support\Facades\Storage;
 
 class Page extends Resource
 {
@@ -54,6 +56,24 @@ class Page extends Resource
             TinymceEditor::make('Description', 'body')
                 ->rules(['nullable'])
                 ->fullWidth(),
+
+            Image::make('Image')
+                ->disk('public')
+                ->path('pages')
+                ->store(function ($request, $model) {
+                    if ($request->image) {
+                        $model->addMediaFromRequest('image')
+                            ->toMediaCollection('images');
+                    }
+                    return null;
+                })
+                ->preview(function ($value, $disk) {
+                    return $value ? \Illuminate\Support\Facades\Storage::disk($disk)->url($value) : null;
+                })
+                ->thumbnail(function () {
+                    return $this->getImageUrl('thumb') ?: $this->getImageUrl();
+                })
+                ->deletable(false),
 
             Boolean::make('Active?', 'is_active')
                 ->default(0)
